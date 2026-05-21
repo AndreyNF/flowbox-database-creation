@@ -4,18 +4,19 @@ import Icon from "@/components/ui/icon";
 
 export type MgrSection =
   | "overview" | "clients" | "catalog" | "orders"
-  | "finance" | "claims" | "suppliers" | "logistics" | "support";
+  | "finance" | "claims" | "suppliers" | "logistics" | "support" | "calculator";
 
 const NAV: { id: MgrSection; label: string; icon: string; group: string }[] = [
-  { id: "overview",   label: "Обзор",       icon: "LayoutDashboard", group: "Главная" },
-  { id: "clients",    label: "Клиенты",     icon: "Building2",       group: "Работа" },
-  { id: "catalog",    label: "Каталог",     icon: "Package",         group: "Работа" },
-  { id: "orders",     label: "Заказы",      icon: "ShoppingCart",    group: "Работа" },
-  { id: "finance",    label: "Финансы",     icon: "Wallet",          group: "Работа" },
-  { id: "claims",     label: "Рекламации",  icon: "AlertOctagon",    group: "Работа" },
-  { id: "suppliers",  label: "Поставщики",  icon: "Truck",           group: "Система" },
-  { id: "logistics",  label: "Логистика",   icon: "MapPin",          group: "Система" },
-  { id: "support",    label: "Поддержка",   icon: "MessageCircle",   group: "Система" },
+  { id: "overview",    label: "Обзор",        icon: "LayoutDashboard", group: "Главная" },
+  { id: "clients",     label: "Клиенты",      icon: "Building2",       group: "Работа" },
+  { id: "catalog",     label: "Каталог",      icon: "Package",         group: "Работа" },
+  { id: "calculator",  label: "Калькулятор",  icon: "Calculator",      group: "Работа" },
+  { id: "orders",      label: "Заказы",       icon: "ShoppingCart",    group: "Работа" },
+  { id: "finance",     label: "Финансы",      icon: "Wallet",          group: "Работа" },
+  { id: "claims",      label: "Рекламации",   icon: "AlertOctagon",    group: "Работа" },
+  { id: "suppliers",   label: "Поставщики",   icon: "Truck",           group: "Система" },
+  { id: "logistics",   label: "Логистика",    icon: "MapPin",          group: "Система" },
+  { id: "support",     label: "Поддержка",    icon: "MessageCircle",   group: "Система" },
 ];
 
 interface Props {

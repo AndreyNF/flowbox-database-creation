@@ -9,6 +9,7 @@ import MgrClaims from "@/components/manager/sections/MgrClaims";
 import MgrSuppliers from "@/components/manager/sections/MgrSuppliers";
 import MgrLogistics from "@/components/manager/sections/MgrLogistics";
 import MgrSupport from "@/components/manager/sections/MgrSupport";
+import Calculator from "@/components/client/sections/Calculator";
 
 export default function ManagerPortal() {
   const [section, setSection] = useState<MgrSection>("overview");
@@ -34,6 +35,7 @@ export default function ManagerPortal() {
       {section === "overview" && <MgrOverview onClientClick={goClient} onClaimClick={goClaim} />}
       {section === "clients" && <MgrClients initialClientId={pendingClientId} />}
       {section === "catalog" && <MgrCatalog />}
+      {section === "calculator" && <Calculator isManager />}
       {section === "orders" && <MgrOrders />}
       {section === "finance" && <MgrFinance />}
       {section === "claims" && <MgrClaims initialClaimId={pendingClaimId} />}
