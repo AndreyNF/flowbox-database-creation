@@ -36,10 +36,10 @@ export default function Login() {
         <div className="flex items-center justify-center gap-3 mb-10">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg"
             style={{ background: "hsl(var(--cyan))" }}>
-            <span className="text-base font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>S</span>
+            <span className="text-base font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>F</span>
           </div>
           <div>
-            <div className="text-lg font-semibold text-foreground leading-none">SupplyOS</div>
+            <div className="text-lg font-semibold text-foreground leading-none">FlowBox</div>
             <div className="text-xs text-muted-foreground mt-0.5">Платформа управления поставками</div>
           </div>
         </div>

@@ -49,10 +49,10 @@ export default function UsersAdmin() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: "hsl(var(--cyan))" }}>
-              <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>S</span>
+              <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>F</span>
             </div>
             <div>
-              <div className="text-sm font-semibold text-foreground">SupplyOS</div>
+              <div className="text-sm font-semibold text-foreground">FlowBox</div>
               <div className="text-xs text-muted-foreground">Управление пользователями</div>
             </div>
           </div>

@@ -8,7 +8,7 @@ interface Message {
 }
 
 const INITIAL_MESSAGES: Message[] = [
-  { id: 1, text: "Добро пожаловать в SupplyOS! Ваш менеджер готов помочь с любыми вопросами.", from: "manager", time: "10:00", read: true },
+  { id: 1, text: "Добро пожаловать в FlowBox! Ваш менеджер готов помочь с любыми вопросами.", from: "manager", time: "10:00", read: true },
   { id: 2, text: "Здравствуйте! Когда ожидать поставку по заказу ORD-4820?", from: "client", time: "10:05", read: true },
   { id: 3, text: "Добрый день! Заказ ORD-4820 уже передан в СДЭК, ориентировочно прибудет 23 мая. Трек-номер: RU-55671234", from: "manager", time: "10:12", read: true },
 ];

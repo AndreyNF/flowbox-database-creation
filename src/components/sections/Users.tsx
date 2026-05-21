@@ -2,12 +2,12 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 
 const USERS = [
-  { id: 1, name: "Иванов Алексей", email: "ivanov@supplyos.ru", role: "Администратор", companies: 3, lastLogin: "21.05.2026 09:41", status: "Онлайн" },
-  { id: 2, name: "Петрова Мария", email: "petrova@supplyos.ru", role: "Менеджер", companies: 2, lastLogin: "21.05.2026 08:15", status: "Онлайн" },
-  { id: 3, name: "Кузнецов Павел", email: "kuznetsov@supplyos.ru", role: "Менеджер", companies: 1, lastLogin: "20.05.2026 18:30", status: "Офлайн" },
-  { id: 4, name: "Смирнова Елена", email: "smirnova@supplyos.ru", role: "Аналитик", companies: 0, lastLogin: "21.05.2026 09:00", status: "Онлайн" },
-  { id: 5, name: "Новиков Дмитрий", email: "novikov@supplyos.ru", role: "Оператор", companies: 1, lastLogin: "19.05.2026 14:22", status: "Офлайн" },
-  { id: 6, name: "Козлова Анна", email: "kozlova@supplyos.ru", role: "Финансовый директор", companies: 0, lastLogin: "21.05.2026 07:55", status: "Онлайн" },
+  { id: 1, name: "Иванов Алексей", email: "ivanov@flowbox.ru", role: "Администратор", companies: 3, lastLogin: "21.05.2026 09:41", status: "Онлайн" },
+  { id: 2, name: "Петрова Мария", email: "petrova@flowbox.ru", role: "Менеджер", companies: 2, lastLogin: "21.05.2026 08:15", status: "Онлайн" },
+  { id: 3, name: "Кузнецов Павел", email: "kuznetsov@flowbox.ru", role: "Менеджер", companies: 1, lastLogin: "20.05.2026 18:30", status: "Офлайн" },
+  { id: 4, name: "Смирнова Елена", email: "smirnova@flowbox.ru", role: "Аналитик", companies: 0, lastLogin: "21.05.2026 09:00", status: "Онлайн" },
+  { id: 5, name: "Новиков Дмитрий", email: "novikov@flowbox.ru", role: "Оператор", companies: 1, lastLogin: "19.05.2026 14:22", status: "Офлайн" },
+  { id: 6, name: "Козлова Анна", email: "kozlova@flowbox.ru", role: "Финансовый директор", companies: 0, lastLogin: "21.05.2026 07:55", status: "Онлайн" },
 ];
 
 const ROLES = [

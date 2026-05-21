@@ -197,7 +197,7 @@ export default function Integrations() {
             <div className="text-xs font-medium text-foreground mb-2">Webhook URL</div>
             <div className="flex items-center gap-2">
               <code className="text-[11px] font-mono text-muted-foreground bg-secondary px-2 py-1.5 rounded flex-1 truncate">
-                https://api.supplyos.ru/webhook/orders
+                https://api.flowbox.ru/webhook/orders
               </code>
               <button className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
                 <Icon name="Copy" size={13} />

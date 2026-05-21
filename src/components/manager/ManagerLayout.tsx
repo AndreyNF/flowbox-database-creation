@@ -40,10 +40,10 @@ export default function ManagerLayout({ section, onSection, alerts = 0, children
         <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border">
           <div className="w-7 h-7 rounded flex items-center justify-center"
             style={{ background: "hsl(var(--cyan))" }}>
-            <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>S</span>
+            <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>F</span>
           </div>
           <div>
-            <div className="text-sm font-semibold text-foreground leading-tight">SupplyOS</div>
+            <div className="text-sm font-semibold text-foreground leading-tight">FlowBox</div>
             <div className="text-[9px] text-muted-foreground">Менеджер</div>
           </div>
         </div>

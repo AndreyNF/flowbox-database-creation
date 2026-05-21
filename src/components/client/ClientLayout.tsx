@@ -42,10 +42,10 @@ export default function ClientLayout({ section, onSection, companyName, children
         <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border">
           <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
             style={{ background: "hsl(var(--cyan))" }}>
-            <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>S</span>
+            <span className="text-xs font-mono font-bold" style={{ color: "hsl(var(--primary-foreground))" }}>F</span>
           </div>
           {!collapsed && (
-            <span className="font-semibold text-sm text-foreground truncate">SupplyOS</span>
+            <span className="font-semibold text-sm text-foreground truncate">FlowBox</span>
           )}
           <button onClick={() => setCollapsed(c => !c)} className="ml-auto text-muted-foreground hover:text-foreground flex-shrink-0">
             <Icon name={collapsed ? "ChevronRight" : "ChevronLeft"} size={13} />

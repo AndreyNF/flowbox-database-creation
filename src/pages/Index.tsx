@@ -64,7 +64,7 @@ export default function Index() {
           </div>
           {!collapsed && (
             <span className="font-semibold text-sm tracking-wide text-foreground whitespace-nowrap">
-              SupplyOS
+              FlowBox
             </span>
           )}
           <button

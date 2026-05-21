@@ -351,9 +351,9 @@ export default function Onboarding() {
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
           <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: "hsl(var(--cyan))" }}>
-            <span className="text-sm font-mono font-semibold" style={{ color: "hsl(var(--primary-foreground))" }}>S</span>
+            <span className="text-sm font-mono font-semibold" style={{ color: "hsl(var(--primary-foreground))" }}>F</span>
           </div>
-          <span className="font-semibold text-foreground">SupplyOS</span>
+          <span className="font-semibold text-foreground">FlowBox</span>
         </div>
 
         {step < 9 && (
@@ -364,7 +364,7 @@ export default function Onboarding() {
 
         {/* Step 1 — Consents */}
         {step === 1 && (
-          <Card title="Добро пожаловать в SupplyOS" subtitle="Перед началом необходимо ознакомиться и принять документы">
+          <Card title="Добро пожаловать в FlowBox" subtitle="Перед началом необходимо ознакомиться и принять документы">
             <FieldGroup>
               <Checkbox
                 checked={data.consent_offer}
