@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 const API_SAVE = "https://functions.poehali.dev/daec4c15-d79a-4154-a716-8690c622dd46";
 const API_DADATA = "https://functions.poehali.dev/0a0add78-6b3a-48c1-8984-0e1180e72ad3";
 const API_ACTIVATE = "https://functions.poehali.dev/9c14a054-f07d-49fd-a318-b881deb30d70";
+const API_OZON_VALIDATE = "https://functions.poehali.dev/45eda92a-8064-497b-8e6e-73242579a867";
 
 const STEPS = [
   { n: 1, label: "Согласия" },
@@ -36,6 +37,7 @@ interface CompanyData {
   contact_person: string;
   // step 4
   marketplace: string;
+  ozon_client_id: string;
   ozon_api_key: string;
   ozon_warehouse_id: string;
   ym_api_key: string;
@@ -64,6 +66,7 @@ const INITIAL: CompanyData = {
   phone: "",
   contact_person: "",
   marketplace: "",
+  ozon_client_id: "",
   ozon_api_key: "",
   ozon_warehouse_id: "",
   ym_api_key: "",
@@ -241,6 +244,9 @@ export default function Onboarding() {
   const [error, setError] = useState("");
   const [innLoading, setInnLoading] = useState(false);
   const [innFound, setInnFound] = useState(false);
+  const [ozonValidating, setOzonValidating] = useState(false);
+  const [ozonValid, setOzonValid] = useState(false);
+  const [ozonWarehouses, setOzonWarehouses] = useState<{id: string; name: string}[]>([]);
 
   const set = useCallback((key: keyof CompanyData, val: string | boolean) => {
     setData(prev => ({ ...prev, [key]: val }));
@@ -291,6 +297,29 @@ export default function Onboarding() {
       setError(e instanceof Error ? e.message : "Ошибка поиска");
     } finally {
       setInnLoading(false);
+    }
+  }
+
+  async function validateOzon() {
+    if (!data.ozon_client_id || !data.ozon_api_key) return;
+    setOzonValidating(true);
+    setOzonValid(false);
+    setOzonWarehouses([]);
+    setError("");
+    try {
+      const res = await fetch(API_OZON_VALIDATE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: data.ozon_client_id, api_key: data.ozon_api_key }),
+      });
+      const json = JSON.parse(await res.text());
+      if (!res.ok) throw new Error(json.error || "Ошибка проверки ключа");
+      setOzonValid(true);
+      setOzonWarehouses(json.warehouses || []);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Ошибка валидации Ozon");
+    } finally {
+      setOzonValidating(false);
     }
   }
 
@@ -457,32 +486,85 @@ export default function Onboarding() {
             <FieldGroup>
               <Field label="Площадка" required>
                 <div className="space-y-2">
-                  <RadioCard value="ozon" selected={data.marketplace} onChange={v => set("marketplace", v)}
+                  <RadioCard value="ozon" selected={data.marketplace}
+                    onChange={v => { set("marketplace", v); setOzonValid(false); setOzonWarehouses([]); }}
                     title="Ozon" description="realFBS — отгрузка со своего склада" icon="ShoppingBag" />
-                  <RadioCard value="yandex_market" selected={data.marketplace} onChange={v => set("marketplace", v)}
+                  <RadioCard value="yandex_market" selected={data.marketplace}
+                    onChange={v => { set("marketplace", v); setOzonValid(false); }}
                     title="Яндекс Маркет" description="FBS / DBS" icon="Store" />
-                  <RadioCard value="both" selected={data.marketplace} onChange={v => set("marketplace", v)}
+                  <RadioCard value="both" selected={data.marketplace}
+                    onChange={v => { set("marketplace", v); setOzonValid(false); setOzonWarehouses([]); }}
                     title="Ozon + Яндекс Маркет" description="Оба маркетплейса одновременно" icon="Layers" />
                 </div>
               </Field>
 
               {showOzon && (
                 <>
+                  <Field label="Ozon Client ID" required>
+                    <Input
+                      value={data.ozon_client_id}
+                      onChange={v => { set("ozon_client_id", v); setOzonValid(false); setOzonWarehouses([]); }}
+                      placeholder="Числовой идентификатор продавца"
+                    />
+                  </Field>
                   <Field label="Ozon API-ключ" required>
-                    <Input value={data.ozon_api_key} onChange={v => set("ozon_api_key", v)} placeholder="Client ID:API Key" />
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <Input
+                          value={data.ozon_api_key}
+                          onChange={v => { set("ozon_api_key", v); setOzonValid(false); setOzonWarehouses([]); }}
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        />
+                        {ozonValid && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Icon name="CheckCircle" size={14} className="text-green-400" />
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={validateOzon}
+                        disabled={!data.ozon_client_id || !data.ozon_api_key || ozonValidating}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                      >
+                        {ozonValidating
+                          ? <Icon name="Loader2" size={13} className="animate-spin" />
+                          : <Icon name="Zap" size={13} />
+                        }
+                        {ozonValidating ? "Проверка..." : "Проверить"}
+                      </button>
+                    </div>
                   </Field>
-                  <Field label="ID склада Ozon">
-                    <Input value={data.ozon_warehouse_id} onChange={v => set("ozon_warehouse_id", v)} placeholder="warehouse_id" />
-                  </Field>
+
+                  {ozonValid && (
+                    <div className="animate-fade-in">
+                      <div className="flex items-center gap-2 text-xs text-green-400 mb-2">
+                        <Icon name="CheckCircle" size={12} /> Ключ действителен · найдено {ozonWarehouses.length} склад(ов)
+                      </div>
+                      {ozonWarehouses.length > 0 && (
+                        <Field label="Склад отгрузки">
+                          <select
+                            value={data.ozon_warehouse_id}
+                            onChange={e => set("ozon_warehouse_id", e.target.value)}
+                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="">— Выберите склад —</option>
+                            {ozonWarehouses.map(w => (
+                              <option key={w.id} value={w.id}>{w.name}</option>
+                            ))}
+                          </select>
+                        </Field>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 
               {showYM && (
                 <>
-                  <Field label="Яндекс Маркет API-ключ" required>
-                    <Input value={data.ym_api_key} onChange={v => set("ym_api_key", v)} placeholder="OAuth-токен" />
+                  <Field label="Яндекс Маркет OAuth-токен" required>
+                    <Input value={data.ym_api_key} onChange={v => set("ym_api_key", v)} placeholder="y0_Ag..." />
                   </Field>
-                  <Field label="ID кампании ЯМ">
+                  <Field label="ID кампании">
                     <Input value={data.ym_warehouse_id} onChange={v => set("ym_warehouse_id", v)} placeholder="campaign_id" />
                   </Field>
                 </>
@@ -493,10 +575,16 @@ export default function Onboarding() {
               <NextButton
                 onClick={() => saveStep(4, {
                   marketplace: data.marketplace,
-                  ozon_api_key: data.ozon_api_key, ozon_warehouse_id: data.ozon_warehouse_id,
-                  ym_api_key: data.ym_api_key, ym_warehouse_id: data.ym_warehouse_id,
+                  ozon_api_key: data.ozon_api_key,
+                  ozon_warehouse_id: data.ozon_warehouse_id,
+                  ym_api_key: data.ym_api_key,
+                  ym_warehouse_id: data.ym_warehouse_id,
                 })}
-                disabled={!data.marketplace || (showOzon && !data.ozon_api_key) || (showYM && !data.ym_api_key)}
+                disabled={
+                  !data.marketplace ||
+                  (showOzon && (!data.ozon_client_id || !data.ozon_api_key || !ozonValid)) ||
+                  (showYM && !data.ym_api_key)
+                }
                 loading={loading}
               />
             </div>

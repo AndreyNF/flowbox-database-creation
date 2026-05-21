@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Invalid key returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"client_id": "0", "api_key": "bad-key"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Missing api_key returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": {"client_id": "123"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
