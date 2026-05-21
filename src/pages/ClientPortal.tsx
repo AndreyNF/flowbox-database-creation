@@ -8,12 +8,15 @@ import Finance from "@/components/client/sections/Finance";
 import Claims from "@/components/client/sections/Claims";
 import Settings from "@/components/client/sections/Settings";
 import Support from "@/components/client/sections/Support";
+import { getCurrentUser } from "@/lib/auth";
 
-// В реальном приложении company_id берётся из сессии/токена
-// Сейчас подставляем первую найденную компанию через URL-параметр или demo
+// company_id берётся из JWT-токена (поле company_id пользователя)
+// Менеджер/админ может передать company_id через URL-параметр
 const getCompanyId = () => {
   const params = new URLSearchParams(window.location.search);
-  return params.get("company_id") || "demo";
+  if (params.get("company_id")) return params.get("company_id")!;
+  const user = getCurrentUser();
+  return user?.company_id || "demo";
 };
 
 interface CalcProduct { id: string; trade_name: string; our_price: number; }
@@ -23,6 +26,7 @@ export default function ClientPortal() {
   const [pendingOrderId, setPendingOrderId] = useState<string | undefined>();
   const [calcProduct, setCalcProduct] = useState<CalcProduct | null>(null);
   const companyId = getCompanyId();
+  const user = getCurrentUser();
 
   function goToOrder(orderId: string) {
     setPendingOrderId(orderId);
@@ -44,7 +48,7 @@ export default function ClientPortal() {
     <ClientLayout
       section={section}
       onSection={handleSection}
-      companyName="Моя компания"
+      companyName={user?.name || "Моя компания"}
     >
       {section === "overview" && (
         <Overview companyId={companyId} onOrderClick={goToOrder} />

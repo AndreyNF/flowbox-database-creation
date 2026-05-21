@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { logout, getCurrentUser } from "@/lib/auth";
 import Icon from "@/components/ui/icon";
 
 export type MgrSection =
@@ -24,6 +26,8 @@ interface Props {
 }
 
 export default function ManagerLayout({ section, onSection, alerts = 0, children }: Props) {
+  const navigate = useNavigate();
+  const user = getCurrentUser();
   const grouped = NAV.reduce<Record<string, typeof NAV>>((a, n) => {
     (a[n.group] = a[n.group] || []).push(n);
     return a;
@@ -79,8 +83,8 @@ export default function ManagerLayout({ section, onSection, alerts = 0, children
               <Icon name="UserCog" size={13} className="text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">Менеджер</div>
-              <div className="text-[10px] text-muted-foreground">Полный доступ</div>
+              <div className="text-xs font-medium text-foreground truncate">{user?.name || "Менеджер"}</div>
+              <div className="text-[10px] text-muted-foreground">{user?.role === "admin" ? "Администратор" : "Менеджер"}</div>
             </div>
           </div>
         </div>
@@ -102,7 +106,7 @@ export default function ManagerLayout({ section, onSection, alerts = 0, children
                 {alerts} новых
               </button>
             )}
-            <button onClick={() => window.location.href = "/"}
+            <button onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <Icon name="LogOut" size={13} />
             </button>

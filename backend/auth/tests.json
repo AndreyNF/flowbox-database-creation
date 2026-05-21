@@ -1,0 +1,52 @@
+{
+  "tests": [
+    {
+      "name": "Login - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Login - wrong credentials",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "email": "nobody@test.com", "password": "wrongpass"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Me - no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "me", "token": ""},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Me - invalid token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "me", "token": "bad.token.here"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Register - no admin token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "register", "email": "x@x.com", "password": "pass", "name": "X"},
+      "expectedStatus": 403
+    },
+    {
+      "name": "Logout - no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "logout", "token": ""},
+      "expectedStatus": 200
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

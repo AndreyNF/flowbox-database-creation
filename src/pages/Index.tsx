@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { logout, getCurrentUser } from "@/lib/auth";
 import Icon from "@/components/ui/icon";
 import Dashboard from "@/components/sections/Dashboard";
 import Companies from "@/components/sections/Companies";
@@ -34,6 +36,8 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
 export default function Index() {
   const [active, setActive] = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const user = getCurrentUser();
 
   const ActiveSection = SECTION_COMPONENTS[active] || Dashboard;
 
@@ -121,11 +125,13 @@ export default function Index() {
         <div className="border-t border-border p-3">
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-medium text-foreground">АД</span>
+              <span className="text-xs font-medium text-foreground">
+                {user?.name?.slice(0, 2).toUpperCase() || "АД"}
+              </span>
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-foreground truncate">Администратор</div>
+                <div className="text-xs font-medium text-foreground truncate">{user?.name || "Администратор"}</div>
                 <div className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>Супер-доступ</div>
               </div>
             )}
@@ -156,8 +162,15 @@ export default function Index() {
             <button className="w-8 h-8 rounded flex items-center justify-center hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
               <Icon name="Bell" size={15} />
             </button>
-            <button className="w-8 h-8 rounded flex items-center justify-center hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
-              <Icon name="Settings" size={15} />
+            <button onClick={() => navigate("/users")}
+              className="w-8 h-8 rounded flex items-center justify-center hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+              title="Управление пользователями">
+              <Icon name="Users" size={15} />
+            </button>
+            <button onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
+              className="w-8 h-8 rounded flex items-center justify-center hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+              title="Выйти">
+              <Icon name="LogOut" size={15} />
             </button>
           </div>
         </header>

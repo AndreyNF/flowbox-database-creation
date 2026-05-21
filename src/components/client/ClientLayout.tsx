@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { logout, getCurrentUser } from "@/lib/auth";
 import Icon from "@/components/ui/icon";
 
 export type ClientSection =
@@ -26,6 +28,8 @@ interface Props {
 
 export default function ClientLayout({ section, onSection, companyName, children, notifications = 0 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const user = getCurrentUser();
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -94,7 +98,7 @@ export default function ClientLayout({ section, onSection, companyName, children
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-foreground truncate">Клиент</div>
+                <div className="text-xs font-medium text-foreground truncate">{user?.name || "Клиент"}</div>
                 <div className="text-[10px] text-muted-foreground">Личный кабинет</div>
               </div>
             )}
@@ -125,7 +129,7 @@ export default function ClientLayout({ section, onSection, companyName, children
               )}
             </button>
             <button
-              onClick={() => window.location.href = "/"}
+              onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <Icon name="LogOut" size={13} />
