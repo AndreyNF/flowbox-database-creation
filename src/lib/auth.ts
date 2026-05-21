@@ -4,7 +4,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "manager" | "client";
+  role: "admin" | "manager" | "client" | "logist";
   company_id: string | null;
   last_login_at?: string | null;
 }
@@ -106,5 +106,6 @@ export function getHomeByRole(role: AuthUser["role"]): string {
   if (role === "admin") return "/";
   if (role === "manager") return "/manager";
   if (role === "client") return "/client";
+  if (role === "logist") return "/logist";
   return "/login";
 }

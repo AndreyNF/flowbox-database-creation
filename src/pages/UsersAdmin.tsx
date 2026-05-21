@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { getAccessToken, logout, getCurrentUser, registerUser } from "@/lib/auth";
 import Icon from "@/components/ui/icon";
 
-const ROLE_LABELS: Record<string, string> = { admin: "Администратор", manager: "Менеджер", client: "Клиент" };
+const ROLE_LABELS: Record<string, string> = { admin: "Администратор", manager: "Менеджер", client: "Клиент", logist: "Логист" };
 const ROLE_COLORS: Record<string, string> = {
   admin:   "text-rose-400 bg-rose-400/10",
   manager: "text-cyan-400 bg-cyan-400/10",
   client:  "text-green-400 bg-green-400/10",
+  logist:  "text-amber-400 bg-amber-400/10",
 };
 
 export default function UsersAdmin() {
@@ -127,7 +128,7 @@ export default function UsersAdmin() {
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Роль *</label>
                   <div className="flex gap-2">
-                    {(["admin", "manager", "client"] as const).map(r => (
+                    {(["admin", "manager", "client", "logist"] as const).map(r => (
                       <button key={r} type="button" onClick={() => setForm(p => ({ ...p, role: r }))}
                         className={`flex-1 py-2 text-xs rounded-lg border font-medium transition-all ${form.role === r ? "border-ring text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
                         style={form.role === r ? { background: "hsla(195,90%,48%,0.1)" } : {}}>
@@ -181,6 +182,12 @@ export default function UsersAdmin() {
                   label: "Клиент",
                   perms: ["Только свои данные", "Каталог и заказы", "Свои счета и рекламации", "Чат с менеджером"],
                   route: "/client",
+                },
+                {
+                  role: "logist",
+                  label: "Логист",
+                  perms: ["Свои задания на сегодня", "Смена статусов доставки", "Маршрут Яндекс Карты", "История за 30 дней"],
+                  route: "/logist",
                 },
               ].map(r => (
                 <div key={r.role} className="flex items-start gap-4 p-4 rounded-lg border border-border"

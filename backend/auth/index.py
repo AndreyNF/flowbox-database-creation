@@ -221,7 +221,7 @@ def handler(event: dict, context) -> dict:
 
             if not email or not password or not name:
                 return resp(400, {"error": "email, password и name обязательны"})
-            if role not in ("admin", "manager", "client"):
+            if role not in ("admin", "manager", "client", "logist"):
                 return resp(400, {"error": "Недопустимая роль"})
 
             cur.execute('SELECT id FROM "user" WHERE email = %s', (email,))

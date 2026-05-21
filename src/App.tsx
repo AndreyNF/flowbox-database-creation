@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import ClientPortal from "./pages/ClientPortal";
 import ManagerPortal from "./pages/ManagerPortal";
+import LogistPortal from "./pages/LogistPortal";
 import UsersAdmin from "./pages/UsersAdmin";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ function RootRedirect() {
   if (user.role === "admin") return <Index />;
   return <Navigate to={getHomeByRole(user.role)} replace />;
 }
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -66,6 +68,13 @@ const App = () => (
           <Route path="/client" element={
             <RequireAuth roles={["admin", "manager", "client"]}>
               <ClientPortal />
+            </RequireAuth>
+          } />
+
+          {/* Logist */}
+          <Route path="/logist" element={
+            <RequireAuth roles={["admin", "manager", "logist"]}>
+              <LogistPortal />
             </RequireAuth>
           } />
 
