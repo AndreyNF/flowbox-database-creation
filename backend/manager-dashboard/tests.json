@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {"name": "Overview", "method": "GET", "path": "/?section=overview", "expectedStatus": 200},
+    {"name": "Clients list", "method": "GET", "path": "/?section=clients", "expectedStatus": 200},
+    {"name": "Catalog", "method": "GET", "path": "/?section=catalog", "expectedStatus": 200},
+    {"name": "Orders", "method": "GET", "path": "/?section=orders", "expectedStatus": 200},
+    {"name": "Finance", "method": "GET", "path": "/?section=finance", "expectedStatus": 200},
+    {"name": "Claims", "method": "GET", "path": "/?section=claims", "expectedStatus": 200},
+    {"name": "Suppliers", "method": "GET", "path": "/?section=suppliers", "expectedStatus": 200},
+    {"name": "Logistics", "method": "GET", "path": "/?section=logistics", "expectedStatus": 200},
+    {"name": "Support chats", "method": "GET", "path": "/?section=support", "expectedStatus": 200},
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200}
+  ]
+}
