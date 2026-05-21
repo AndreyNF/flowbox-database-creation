@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "GET status",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST - wrong secret",
+      "method": "POST",
+      "path": "/",
+      "body": {"seed_secret": "wrong", "name": "Admin", "email": "admin@test.com", "password": "12345678"},
+      "expectedStatus": 403
+    },
+    {
+      "name": "POST - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"seed_secret": "wrong"},
+      "expectedStatus": 403
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
