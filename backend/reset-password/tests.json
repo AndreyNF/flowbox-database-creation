@@ -1,0 +1,45 @@
+{
+  "tests": [
+    {
+      "name": "Request - missing email",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "request"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Request - unknown email (safe response)",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "request", "email": "nobody@nowhere.com"},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Verify - invalid token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "verify", "token": "invalid-token-xyz"},
+      "expectedStatus": 404
+    },
+    {
+      "name": "Reset - short password",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "reset", "token": "any", "new_password": "short"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Reset - invalid token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "reset", "token": "invalid-token-xyz", "new_password": "longpassword123"},
+      "expectedStatus": 404
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
