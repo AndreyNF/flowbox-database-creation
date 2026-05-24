@@ -536,23 +536,66 @@ export default function Onboarding() {
                   </Field>
 
                   {ozonValid && (
-                    <div className="animate-fade-in">
-                      <div className="flex items-center gap-2 text-xs text-green-400 mb-2">
-                        <Icon name="CheckCircle" size={12} /> Ключ действителен · найдено {ozonWarehouses.length} склад(ов)
+                    <div className="animate-fade-in space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-green-400">
+                        <Icon name="CheckCircle" size={12} />
+                        Ключ действителен · найдено {ozonWarehouses.length} склад(ов)
                       </div>
-                      {ozonWarehouses.length > 0 && (
-                        <Field label="Склад отгрузки">
-                          <select
-                            value={data.ozon_warehouse_id}
-                            onChange={e => set("ozon_warehouse_id", e.target.value)}
-                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                          >
-                            <option value="">— Выберите склад —</option>
+                      {ozonWarehouses.length > 0 ? (
+                        <Field label="Склад отгрузки" required>
+                          <div className="space-y-2">
                             {ozonWarehouses.map(w => (
-                              <option key={w.id} value={w.id}>{w.name}</option>
+                              <button
+                                key={w.id}
+                                type="button"
+                                onClick={() => set("ozon_warehouse_id", String(w.id))}
+                                className={`w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between gap-3 ${
+                                  data.ozon_warehouse_id === String(w.id)
+                                    ? "border-ring"
+                                    : "border-border hover:border-muted-foreground"
+                                }`}
+                                style={data.ozon_warehouse_id === String(w.id)
+                                  ? { background: "hsla(195,90%,48%,0.06)" }
+                                  : { background: "hsl(var(--secondary))" }}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+                                    style={{ background: data.ozon_warehouse_id === String(w.id)
+                                      ? "hsla(195,90%,48%,0.15)" : "hsl(var(--border))" }}>
+                                    <Icon name="Warehouse" size={13}
+                                      style={{ color: data.ozon_warehouse_id === String(w.id)
+                                        ? "hsl(var(--cyan))" : "hsl(var(--muted-foreground))" }} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className={`text-sm font-medium truncate ${
+                                      data.ozon_warehouse_id === String(w.id) ? "text-foreground" : "text-muted-foreground"
+                                    }`}>{w.name}</div>
+                                    <div className="text-[10px] text-muted-foreground font-mono">ID: {w.id}</div>
+                                  </div>
+                                </div>
+                                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                                  data.ozon_warehouse_id === String(w.id) ? "border-ring" : "border-border"
+                                }`}>
+                                  {data.ozon_warehouse_id === String(w.id) && (
+                                    <div className="w-full h-full rounded-full scale-50"
+                                      style={{ background: "hsl(var(--cyan))" }} />
+                                  )}
+                                </div>
+                              </button>
                             ))}
-                          </select>
+                          </div>
+                          {!data.ozon_warehouse_id && (
+                            <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
+                              <Icon name="AlertTriangle" size={11} />
+                              Выберите склад для продолжения
+                            </p>
+                          )}
                         </Field>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2.5">
+                          <Icon name="AlertTriangle" size={13} />
+                          Складов не найдено. Создайте склад в кабинете Ozon Seller.
+                        </div>
                       )}
                     </div>
                   )}
@@ -575,6 +618,7 @@ export default function Onboarding() {
               <NextButton
                 onClick={() => saveStep(4, {
                   marketplace: data.marketplace,
+                  ozon_client_id: data.ozon_client_id,
                   ozon_api_key: data.ozon_api_key,
                   ozon_warehouse_id: data.ozon_warehouse_id,
                   ym_api_key: data.ym_api_key,
@@ -582,7 +626,7 @@ export default function Onboarding() {
                 })}
                 disabled={
                   !data.marketplace ||
-                  (showOzon && (!data.ozon_client_id || !data.ozon_api_key || !ozonValid)) ||
+                  (showOzon && (!data.ozon_client_id || !data.ozon_api_key || !ozonValid || !data.ozon_warehouse_id)) ||
                   (showYM && !data.ym_api_key)
                 }
                 loading={loading}

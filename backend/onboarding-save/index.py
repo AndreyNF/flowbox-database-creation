@@ -120,12 +120,13 @@ def handler(event: dict, context) -> dict:
             }
         cur.execute(
             """UPDATE company SET
-               marketplace = %s, ozon_api_key = %s, ozon_warehouse_id = %s,
+               marketplace = %s, ozon_client_id = %s, ozon_api_key = %s, ozon_warehouse_id = %s,
                ym_api_key = %s, ym_warehouse_id = %s,
                onboarding_step = GREATEST(onboarding_step, 4)
                WHERE id = %s""",
             (
                 body["marketplace"],
+                body.get("ozon_client_id"),
                 body.get("ozon_api_key"), body.get("ozon_warehouse_id"),
                 body.get("ym_api_key"), body.get("ym_warehouse_id"),
                 company_id,
