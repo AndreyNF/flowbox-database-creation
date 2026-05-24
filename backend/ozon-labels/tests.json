@@ -1,0 +1,7 @@
+{
+  "tests": [
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "get_labels - missing params", "method": "POST", "path": "/?action=get_labels", "body": {}, "expectedStatus": 400},
+    {"name": "get_act - missing params", "method": "POST", "path": "/?action=get_act", "body": {}, "expectedStatus": 400}
+  ]
+}

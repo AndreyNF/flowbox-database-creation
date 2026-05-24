@@ -1,4 +1,9 @@
 {
+  "ozon-returns": "https://functions.poehali.dev/622d113b-1244-4d1a-891c-7cb44fafa15d",
+  "ozon-labels": "https://functions.poehali.dev/3cf9358a-bb55-4ca7-a3ea-a3c93fb34f4f",
+  "ozon-stocks": "https://functions.poehali.dev/d092468e-b589-483d-95f5-e328cc916699",
+  "ozon-orders": "https://functions.poehali.dev/d9772cee-9d3c-4f2f-94e4-490ed0ce7f23",
+  "ozon-api": "https://functions.poehali.dev/6d7efa43-f4bf-48ab-ad43-f15029d45bfe",
   "tochka-polling": "https://functions.poehali.dev/cfd77472-16b2-4166-a9c2-fc91e9740c43",
   "tochka-webhook": "https://functions.poehali.dev/0d7b9575-43b7-416a-a551-e8118aa4c85e",
   "overdue-checker": "https://functions.poehali.dev/6bfbff86-898a-4d09-98ad-96ee492b41cf",

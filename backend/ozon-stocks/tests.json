@@ -1,0 +1,8 @@
+{
+  "tests": [
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "sync_stocks - no company", "method": "POST", "path": "/?action=sync_stocks", "body": {}, "expectedStatus": 200},
+    {"name": "sync_product - missing params", "method": "POST", "path": "/?action=sync_product", "body": {}, "expectedStatus": 400},
+    {"name": "flush_price_queue", "method": "POST", "path": "/?action=flush_price_queue", "body": {}, "expectedStatus": 200}
+  ]
+}

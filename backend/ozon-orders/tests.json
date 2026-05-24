@@ -1,0 +1,8 @@
+{
+  "tests": [
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "poll - all companies", "method": "POST", "path": "/?action=poll", "body": {}, "expectedStatus": 200},
+    {"name": "confirm - missing params", "method": "POST", "path": "/?action=confirm", "body": {}, "expectedStatus": 400},
+    {"name": "status - bad status", "method": "POST", "path": "/?action=status", "body": {"status": "unknown"}, "expectedStatus": 400}
+  ]
+}

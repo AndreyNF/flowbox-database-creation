@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "warehouses - missing company_id", "method": "GET", "path": "/?action=warehouses", "expectedStatus": 400},
+    {"name": "attributes - missing category_id", "method": "GET", "path": "/?action=attributes", "expectedStatus": 400},
+    {"name": "attributes - empty", "method": "GET", "path": "/?action=attributes&category_id=0", "expectedStatus": 200},
+    {"name": "check_moderation - no pending", "method": "POST", "path": "/?action=check_moderation", "body": {}, "expectedStatus": 200},
+    {"name": "unknown action", "method": "GET", "path": "/?action=unknown", "expectedStatus": 400}
+  ]
+}
