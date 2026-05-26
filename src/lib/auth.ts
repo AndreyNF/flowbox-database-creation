@@ -103,7 +103,7 @@ export async function changePassword(token: string, old_password: string, new_pa
 // ── redirect helper ──────────────────────────────────────────────────────────
 
 export function getHomeByRole(role: AuthUser["role"]): string {
-  if (role === "admin") return "/";
+  if (role === "admin") return "/admin";
   if (role === "manager") return "/manager";
   if (role === "client") return "/client";
   if (role === "logist") return "/logist";

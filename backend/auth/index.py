@@ -6,7 +6,8 @@ import base64
 import time
 import psycopg2
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# v3 — login_log + access_expires check
+
 
 def get_db():
     return psycopg2.connect(
@@ -75,34 +76,46 @@ def resp(status: int, body: dict) -> dict:
     return {"statusCode": status, "headers": CORS, "body": json.dumps(body, ensure_ascii=False)}
 
 
-# ── handler ───────────────────────────────────────────────────────────────────
+def _log_login(cur, conn, user_id, email, ip, success):
+    try:
+        cur.execute(
+            "INSERT INTO login_log (user_id,email,ip,success) VALUES (%s,%s,%s,%s)",
+            (str(user_id), email, ip, success),
+        )
+        conn.commit()
+    except Exception:
+        pass
+
 
 def handler(event: dict, context) -> dict:
     """
-    Авторизация: login / logout / me / register / refresh.
-    POST /  с JSON { action: "login"|"logout"|"me"|"register"|"refresh", ... }
+    Авторизация: login / logout / me / register / refresh / change_password.
+    POST /  с JSON { action: "...", ... }
     """
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    body = json.loads(event.get("body") or "{}")
+    body   = json.loads(event.get("body") or "{}")
     action = body.get("action", "")
     secret = os.environ.get("JWT_SECRET", "fallback-secret-change-me")
+    hdrs   = event.get("headers") or {}
+    ip     = hdrs.get("x-forwarded-for") or hdrs.get("X-Forwarded-For") or ""
 
     conn = get_db()
-    cur = conn.cursor()
+    cur  = conn.cursor()
 
     try:
         # ── LOGIN ──────────────────────────────────────────────────────────────
         if action == "login":
-            email = (body.get("email") or "").strip().lower()
+            email    = (body.get("email") or "").strip().lower()
             password = body.get("password", "")
 
             if not email or not password:
                 return resp(400, {"error": "Email и пароль обязательны"})
 
             cur.execute(
-                """SELECT id, name, email, role, password_hash, company_id, is_active
+                """SELECT id, name, email, role, password_hash, company_id,
+                          is_active, access_expires_at
                    FROM "user" WHERE email = %s AND archived_at IS NULL""",
                 (email,),
             )
@@ -110,39 +123,53 @@ def handler(event: dict, context) -> dict:
             if not row:
                 return resp(401, {"error": "Неверный email или пароль"})
 
-            uid, name, uemail, role, pw_hash, company_id, is_active = row
+            uid, name, uemail, role, pw_hash, company_id, is_active, access_exp = row
 
             if not is_active:
                 return resp(403, {"error": "Аккаунт деактивирован. Обратитесь к администратору."})
 
             if not pw_hash or not check_password(password, pw_hash):
+                _log_login(cur, conn, uid, email, ip, False)
                 return resp(401, {"error": "Неверный email или пароль"})
 
-            access_token = make_jwt(
+            # Проверка срока доступа (product_manager)
+            if access_exp:
+                import datetime as _dt
+                if access_exp < _dt.datetime.now(_dt.timezone.utc):
+                    cur.execute("UPDATE \"user\" SET is_active=false WHERE id=%s", (str(uid),))
+                    conn.commit()
+                    return resp(403, {"error": "Срок доступа истёк. Обратитесь к администратору."})
+
+            access_token  = make_jwt(
                 {"sub": str(uid), "role": role, "company_id": str(company_id) if company_id else None},
                 secret, ttl=3600,
             )
             refresh_token = make_jwt({"sub": str(uid), "type": "refresh"}, secret, ttl=86400 * 30)
 
             cur.execute(
-                "UPDATE \"user\" SET last_login_at = NOW(), refresh_token = %s, refresh_expires = NOW() + INTERVAL '30 days' WHERE id = %s",
+                """UPDATE "user"
+                   SET last_login_at=NOW(), refresh_token=%s,
+                       refresh_expires=NOW()+INTERVAL '30 days'
+                   WHERE id=%s""",
                 (refresh_token, str(uid)),
             )
-            conn.commit()
+            _log_login(cur, conn, uid, uemail, ip, True)
 
             return resp(200, {
-                "access_token": access_token,
+                "access_token":  access_token,
                 "refresh_token": refresh_token,
-                "user": {"id": str(uid), "name": name, "email": uemail, "role": role,
-                         "company_id": str(company_id) if company_id else None},
+                "user": {
+                    "id": str(uid), "name": name, "email": uemail,
+                    "role": role,
+                    "company_id": str(company_id) if company_id else None,
+                },
             })
 
         # ── ME ─────────────────────────────────────────────────────────────────
         elif action == "me":
             token = body.get("token", "")
             if not token:
-                headers = event.get("headers") or {}
-                auth = headers.get("authorization") or headers.get("Authorization", "")
+                auth  = hdrs.get("authorization") or hdrs.get("Authorization", "")
                 token = auth.removeprefix("Bearer ").strip()
 
             payload = verify_jwt(token, secret)
@@ -151,7 +178,7 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(
                 """SELECT id, name, email, role, company_id, is_active, last_login_at
-                   FROM "user" WHERE id = %s AND archived_at IS NULL""",
+                   FROM "user" WHERE id=%s AND archived_at IS NULL""",
                 (payload["sub"],),
             )
             row = cur.fetchone()
@@ -168,38 +195,38 @@ def handler(event: dict, context) -> dict:
 
         # ── REFRESH ────────────────────────────────────────────────────────────
         elif action == "refresh":
-            refresh_token = body.get("refresh_token", "")
-            payload = verify_jwt(refresh_token, secret)
+            rt      = body.get("refresh_token", "")
+            payload = verify_jwt(rt, secret)
             if not payload or payload.get("type") != "refresh":
                 return resp(401, {"error": "Refresh-токен недействителен"})
 
             cur.execute(
                 """SELECT id, name, email, role, company_id, is_active, refresh_token
-                   FROM "user" WHERE id = %s AND archived_at IS NULL""",
+                   FROM "user" WHERE id=%s AND archived_at IS NULL""",
                 (payload["sub"],),
             )
             row = cur.fetchone()
-            if not row or not row[5] or row[6] != refresh_token:
+            if not row or not row[5] or row[6] != rt:
                 return resp(401, {"error": "Refresh-токен отозван"})
 
-            uid, name, email, role, company_id = row[0], row[1], row[2], row[3], row[4]
+            uid, name, email, role, cid = row[0], row[1], row[2], row[3], row[4]
             new_access = make_jwt(
-                {"sub": str(uid), "role": role, "company_id": str(company_id) if company_id else None},
+                {"sub": str(uid), "role": role, "company_id": str(cid) if cid else None},
                 secret, ttl=3600,
             )
             return resp(200, {
                 "access_token": new_access,
-                "user": {"id": str(uid), "name": name, "email": email, "role": role,
-                         "company_id": str(company_id) if company_id else None},
+                "user": {"id": str(uid), "name": name, "email": email,
+                         "role": role, "company_id": str(cid) if cid else None},
             })
 
         # ── LOGOUT ─────────────────────────────────────────────────────────────
         elif action == "logout":
-            token = body.get("token", "")
+            token   = body.get("token", "")
             payload = verify_jwt(token, secret)
             if payload:
                 cur.execute(
-                    "UPDATE \"user\" SET refresh_token = NULL, refresh_expires = NULL WHERE id = %s",
+                    "UPDATE \"user\" SET refresh_token=NULL, refresh_expires=NULL WHERE id=%s",
                     (payload["sub"],),
                 )
                 conn.commit()
@@ -207,24 +234,23 @@ def handler(event: dict, context) -> dict:
 
         # ── REGISTER (admin only) ──────────────────────────────────────────────
         elif action == "register":
-            # Verify caller is admin
-            token = body.get("admin_token", "")
+            token   = body.get("admin_token", "")
             payload = verify_jwt(token, secret)
             if not payload or payload.get("role") != "admin":
                 return resp(403, {"error": "Только администратор может создавать пользователей"})
 
-            email = (body.get("email") or "").strip().lower()
-            password = body.get("password", "")
-            name = body.get("name", "")
-            role = body.get("role", "manager")
+            email      = (body.get("email") or "").strip().lower()
+            password   = body.get("password", "")
+            name       = body.get("name", "")
+            role       = body.get("role", "manager")
             company_id = body.get("company_id") or None
 
             if not email or not password or not name:
                 return resp(400, {"error": "email, password и name обязательны"})
-            if role not in ("admin", "manager", "client", "logist"):
+            if role not in ("admin", "manager", "client", "logist", "product_manager"):
                 return resp(400, {"error": "Недопустимая роль"})
 
-            cur.execute('SELECT id FROM "user" WHERE email = %s', (email,))
+            cur.execute('SELECT id FROM "user" WHERE email=%s', (email,))
             if cur.fetchone():
                 return resp(409, {"error": "Пользователь с таким email уже существует"})
 
@@ -240,7 +266,7 @@ def handler(event: dict, context) -> dict:
 
         # ── CHANGE PASSWORD ────────────────────────────────────────────────────
         elif action == "change_password":
-            token = body.get("token", "")
+            token   = body.get("token", "")
             payload = verify_jwt(token, secret)
             if not payload:
                 return resp(401, {"error": "Токен недействителен"})
@@ -250,13 +276,13 @@ def handler(event: dict, context) -> dict:
             if len(new_pw) < 8:
                 return resp(400, {"error": "Пароль должен быть минимум 8 символов"})
 
-            cur.execute('SELECT password_hash FROM "user" WHERE id = %s', (payload["sub"],))
+            cur.execute('SELECT password_hash FROM "user" WHERE id=%s', (payload["sub"],))
             row = cur.fetchone()
             if not row or not check_password(old_pw, row[0] or ""):
                 return resp(401, {"error": "Неверный текущий пароль"})
 
             cur.execute(
-                "UPDATE \"user\" SET password_hash = %s WHERE id = %s",
+                "UPDATE \"user\" SET password_hash=%s WHERE id=%s",
                 (hash_password(new_pw), payload["sub"]),
             )
             conn.commit()
