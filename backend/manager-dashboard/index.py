@@ -655,6 +655,230 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             result["ok"] = True
 
+        # ── БАНКОВСКИЕ ТРАНЗАКЦИИ — список для менеджера ─────────────────────
+        elif section == "bank_transactions":
+            st_f  = params.get("match_status", "")
+            df    = params.get("date_from", "")
+            dt    = params.get("date_to", "")
+            offset = int(params.get("offset", 0))
+            lim   = min(int(params.get("limit", 50)), 200)
+
+            where = ["1=1"]
+            args  = []
+            if st_f:
+                where.append("bt.match_status = %s"); args.append(st_f)
+            if df:
+                where.append("bt.received_at >= %s"); args.append(df)
+            if dt:
+                where.append("bt.received_at <= %s"); args.append(dt)
+
+            cur.execute(
+                f"""SELECT bt.id, bt.bank_operation_id, bt.counterparty_inn,
+                           co.name AS company_name, bt.amount, bt.payment_purpose,
+                           bt.match_status, bt.received_at,
+                           i.invoice_number, u.name AS matched_by_name
+                    FROM bank_transaction bt
+                    LEFT JOIN company co ON co.id = bt.company_id
+                    LEFT JOIN invoice  i  ON i.id  = bt.matched_invoice_id
+                    LEFT JOIN "user"   u  ON u.id  = bt.matched_by
+                    WHERE {' AND '.join(where)}
+                    ORDER BY bt.received_at DESC
+                    LIMIT %s OFFSET %s""",
+                args + [lim, offset],
+            )
+            result["transactions"] = [
+                {"id": str(r[0]), "bank_operation_id": r[1], "counterparty_inn": r[2],
+                 "company_name": r[3], "amount": r[4], "payment_purpose": r[5],
+                 "match_status": r[6], "received_at": r[7].isoformat() if r[7] else None,
+                 "invoice_number": r[8], "matched_by_name": r[9]}
+                for r in cur.fetchall()
+            ]
+            cur.execute(
+                f'SELECT COUNT(*) FROM bank_transaction bt WHERE {" AND ".join(where)}',
+                args,
+            )
+            result["total"] = cur.fetchone()[0]
+
+            # Открытые счета для выбора при ручной привязке
+            cur.execute(
+                """SELECT i.id, i.invoice_number, i.total_vat + i.delivery_total AS amount,
+                          co.name AS company_name
+                   FROM invoice i JOIN company co ON co.id = i.company_id
+                   WHERE i.status = 'pending'
+                   ORDER BY i.created_at DESC LIMIT 200"""
+            )
+            result["open_invoices"] = [
+                {"id": str(r[0]), "invoice_number": r[1],
+                 "amount": r[2], "company_name": r[3]}
+                for r in cur.fetchall()
+            ]
+            cur.execute("SELECT id, name FROM company ORDER BY name")
+            result["companies"] = [{"id": str(r[0]), "name": r[1]} for r in cur.fetchall()]
+
+        # ── РУЧНОЕ СОПОСТАВЛЕНИЕ ПЛАТЕЖА ────────────────────────────────────
+        elif section == "bank_match" and method == "POST":
+            import sys, os as _os
+            sys.path.insert(0, _os.path.dirname(__file__))
+
+            from decimal import Decimal as _Dec
+
+            bank_tx_id = body.get("bank_transaction_id")
+            invoice_id = body.get("invoice_id")
+            cid_match  = body.get("company_id")
+            user_id    = body.get("user_id")  # менеджер, выполняющий привязку
+
+            if not bank_tx_id:
+                cur.close(); conn.close()
+                return {"statusCode": 400, "headers": cors,
+                        "body": json.dumps({"error": "bank_transaction_id обязателен"}, ensure_ascii=False)}
+
+            # Получить данные транзакции
+            cur.execute(
+                "SELECT amount, payment_purpose, company_id FROM bank_transaction WHERE id = %s",
+                (bank_tx_id,),
+            )
+            tx_row = cur.fetchone()
+            if not tx_row:
+                cur.close(); conn.close()
+                return {"statusCode": 404, "headers": cors,
+                        "body": json.dumps({"error": "Транзакция не найдена"}, ensure_ascii=False)}
+
+            tx_amount  = _Dec(str(tx_row[0]))
+            tx_purpose = tx_row[1] or ""
+            company_id_resolved = cid_match or (str(tx_row[2]) if tx_row[2] else None)
+
+            # Если явно указан счёт — привязываем к нему напрямую
+            if invoice_id:
+                cur.execute(
+                    "SELECT id, invoice_number, total_vat, status FROM invoice WHERE id = %s",
+                    (invoice_id,),
+                )
+                inv = cur.fetchone()
+                if not inv:
+                    cur.close(); conn.close()
+                    return {"statusCode": 404, "headers": cors,
+                            "body": json.dumps({"error": "Счёт не найден"}, ensure_ascii=False)}
+
+                from datetime import datetime, timezone as _tz
+                now = datetime.now(_tz.utc)
+                inv_id_s    = str(inv[0])
+                inv_number  = inv[1]
+                inv_total   = _Dec(str(inv[2]))
+                overpayment = max(_Dec("0"), tx_amount - inv_total)
+
+                cur.execute(
+                    """UPDATE invoice
+                       SET status = 'paid', paid_at = %s,
+                           bank_transaction_id = %s, overpayment_amount = %s
+                       WHERE id = %s""",
+                    (now, bank_tx_id, float(overpayment), inv_id_s),
+                )
+                cur.execute(
+                    """UPDATE bank_transaction
+                       SET match_status = 'manual_matched',
+                           matched_invoice_id = %s,
+                           matched_at = %s,
+                           matched_by = %s,
+                           company_id = %s
+                       WHERE id = %s""",
+                    (inv_id_s, now, user_id, company_id_resolved, bank_tx_id),
+                )
+                cur.execute(
+                    "UPDATE \"order\" SET payment_status = 'paid' WHERE invoice_id = %s",
+                    (inv_id_s,),
+                )
+
+                if company_id_resolved:
+                    cur.execute("SELECT balance FROM company WHERE id = %s", (company_id_resolved,))
+                    bal_row = cur.fetchone()
+                    balance = _Dec(str(bal_row[0])) if bal_row else _Dec("0")
+
+                    # Транзакция оплаты
+                    cur.execute(
+                        """INSERT INTO transaction
+                           (company_id, type, amount, linked_doc_type, linked_doc_id,
+                            status, created_by, comment, balance_after)
+                           VALUES (%s,'payment_received',%s,'invoice',%s,'confirmed','manager',%s,%s)""",
+                        (company_id_resolved, float(min(tx_amount, inv_total)),
+                         inv_id_s,
+                         f"Ручная привязка платежа к счёту {inv_number}",
+                         float(balance)),
+                    )
+
+                    if overpayment > _Dec("0"):
+                        new_bal = balance + overpayment
+                        cur.execute(
+                            "UPDATE company SET balance = %s WHERE id = %s",
+                            (float(new_bal), company_id_resolved),
+                        )
+                        cur.execute(
+                            """INSERT INTO transaction
+                               (company_id,type,amount,linked_doc_type,linked_doc_id,
+                                status,created_by,comment,balance_after)
+                               VALUES (%s,'balance_used',%s,'invoice',%s,'confirmed','manager',%s,%s)""",
+                            (company_id_resolved, float(overpayment),
+                             inv_id_s,
+                             f"Переплата по счёту {inv_number} на баланс",
+                             float(new_bal)),
+                        )
+
+                    cur.execute(
+                        """UPDATE company
+                           SET status = 'active', blocked_system_at = NULL
+                           WHERE id = %s AND status = 'blocked_system'""",
+                        (company_id_resolved,),
+                    )
+
+                # Уведомить клиента
+                cur.execute(
+                    'SELECT id FROM "user" WHERE company_id = %s AND archived_at IS NULL',
+                    (company_id_resolved,),
+                )
+                for u_row in cur.fetchall():
+                    cur.execute(
+                        """INSERT INTO notification (user_id, event_type, channel, text, link_type, link_id)
+                           VALUES (%s, 'invoice_paid', 'in_app', %s, 'invoice', %s)""",
+                        (str(u_row[0]),
+                         f"Счёт {inv_number} отмечен оплаченным (ручная обработка).",
+                         inv_id_s),
+                    )
+
+                result["match_status"] = "manual_matched"
+                result["invoice_number"] = inv_number
+
+            else:
+                # Нет конкретного счёта — запускаем автоматику с флагом matched_by
+                # Импортируем только нужные функции
+                def _notify_by_role(role, text):
+                    cur.execute(
+                        'SELECT id FROM "user" WHERE role = %s AND archived_at IS NULL',
+                        (role,),
+                    )
+                    for u_row in cur.fetchall():
+                        cur.execute(
+                            """INSERT INTO notification (user_id, event_type, channel, text, link_type, link_id)
+                               VALUES (%s, 'payment_needs_distribution', 'in_app', %s, 'bank_transaction', %s)""",
+                            (str(u_row[0]), text, bank_tx_id),
+                        )
+
+                if not company_id_resolved:
+                    _notify_by_role("manager", f"Ручная обработка: компания не указана для транзакции {bank_tx_id[:8]}.")
+                    cur.execute(
+                        "UPDATE bank_transaction SET match_status = 'unmatched' WHERE id = %s",
+                        (bank_tx_id,),
+                    )
+                    result["match_status"] = "unmatched"
+                else:
+                    cur.execute(
+                        "UPDATE bank_transaction SET company_id = %s, match_status = 'needs_distribution' WHERE id = %s",
+                        (company_id_resolved, bank_tx_id),
+                    )
+                    result["match_status"] = "needs_distribution"
+                    result["hint"] = "Укажите invoice_id для полной привязки"
+
+            conn.commit()
+            result["ok"] = True
+
     finally:
         cur.close()
         conn.close()

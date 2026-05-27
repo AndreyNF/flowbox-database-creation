@@ -108,7 +108,7 @@ def handler(event: dict, context) -> dict:
             """INSERT INTO bank_transaction
                (bank_operation_id, direction, counterparty_inn, company_id,
                 amount, payment_purpose, source, operation_date)
-               VALUES (%s, 'credit', %s, %s, %s, %s, 'webhook', %s)
+               VALUES (%s, 'incoming', %s, %s, %s, %s, 'webhook', %s)
                RETURNING id""",
             (bank_operation_id, counterparty_inn, company_id,
              float(amount), payment_purpose, operation_date_raw),
