@@ -109,6 +109,18 @@ def handler(event: dict, context) -> dict:
             ]
             return resp(200, {"products": products})
 
+        # ── DELIVERY RATES ────────────────────────────────────────────────────
+        elif action == "delivery_rates":
+            cur.execute(
+                "SELECT price_from, price_to, cost FROM ozon_partner_delivery_rate ORDER BY price_from"
+            )
+            return resp(200, {
+                "rates": [
+                    {"price_from": float(r[0]), "price_to": float(r[1]) if r[1] else None, "cost": float(r[2])}
+                    for r in cur.fetchall()
+                ]
+            })
+
         # ── APPLY PRICE ───────────────────────────────────────────────────────
         elif action == "apply" and event.get("httpMethod") == "POST":
             headers = event.get("headers") or {}

@@ -17,6 +17,9 @@ interface Product {
   id: string; trade_name: string; purchase_price: number;
   package_kg: number; our_price: number | null; category_ozon: string | null;
 }
+interface DeliveryRate {
+  price_from: number; price_to: number | null; cost: number;
+}
 interface CalcProduct { id: string; trade_name: string; our_price: number; }
 interface Props { initialProduct?: CalcProduct | null; isManager?: boolean; }
 
@@ -32,6 +35,24 @@ function calcLogisticsCost(packageKg: number): number {
   if (packageKg <= 0) return 0;
   if (packageKg <= 100) return 600;
   return 600 + (packageKg - 100) * 2.5;
+}
+
+function calcPartnerDeliveryCost(orderPrice: number, rates: DeliveryRate[]): number {
+  if (!rates.length) {
+    // fallback hardcode если БД недоступна
+    if (orderPrice < 500)   return 200;
+    if (orderPrice < 1000)  return 300;
+    if (orderPrice < 3000)  return 400;
+    if (orderPrice < 7500)  return 700;
+    if (orderPrice < 15000) return 1300;
+    if (orderPrice < 30000) return 1900;
+    if (orderPrice < 75000) return 2200;
+    return 2500;
+  }
+  const match = rates.find(r =>
+    orderPrice >= r.price_from && (r.price_to === null || orderPrice < r.price_to)
+  );
+  return match ? match.cost : rates[rates.length - 1].cost;
 }
 
 function getCommissionRate(tariff: Tariff, price: number): number {
@@ -137,8 +158,12 @@ export default function Calculator({ initialProduct, isManager }: Props) {
   // Data from backend
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [deliveryRates, setDeliveryRates] = useState<DeliveryRate[]>([]);
   const [tariffsLoading, setTariffsLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(false);
+
+  // Блок доставки
+  const [deliveryMode, setDeliveryMode] = useState<"own" | "partner_ozon">("own");
 
   // Form state — Блок 1: Товар
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -166,7 +191,7 @@ export default function Calculator({ initialProduct, isManager }: Props) {
   const [applyOk, setApplyOk] = useState(false);
   const [applyError, setApplyError] = useState("");
 
-  // ── Load tariffs ──
+  // ── Load tariffs + delivery rates ──
   useEffect(() => {
     fetch(`${CALC_URL}?action=tariffs`)
       .then(r => r.json()).then(d => {
@@ -178,6 +203,11 @@ export default function Calculator({ initialProduct, isManager }: Props) {
       })
       .catch(() => {})
       .finally(() => setTariffsLoading(false));
+
+    fetch(`${CALC_URL}?action=delivery_rates`)
+      .then(r => r.json())
+      .then(d => { if (d.rates?.length) setDeliveryRates(d.rates); })
+      .catch(() => {});
   }, []);
 
   // ── Load products when search opens ──
@@ -226,6 +256,11 @@ export default function Calculator({ initialProduct, isManager }: Props) {
   const adsFrac = adsPct / 100;
   const profitFrac = profitPct / 100;
 
+  // Стоимость доставки в зависимости от режима
+  // Для партнёров Ozon — считаем от finalCardPrice (итерация ниже)
+  // Для своей — logisticsCost из поля ввода
+  const ownDeliveryCost = deliveryMode === "own" ? logisticsCost : 0;
+
   // ── Core calculation ──
   const cardPrice = useMemo(() => {
     if (purchase <= 0) return 0;
@@ -245,6 +280,13 @@ export default function Calculator({ initialProduct, isManager }: Props) {
     return calcCardPrice(purchase, profitFrac, earlyPct, finalCommissionPct, returnsFrac, adsFrac, serviceFee);
   }, [purchase, profitFrac, earlyPct, finalCommissionPct, returnsFrac, adsFrac, serviceFee]);
 
+  // Тариф доставки партнёров Ozon считается от итоговой цены карточки
+  const partnerDeliveryCost = useMemo(() =>
+    deliveryMode === "partner_ozon" ? calcPartnerDeliveryCost(finalCardPrice, deliveryRates) : 0,
+    [deliveryMode, finalCardPrice, deliveryRates]
+  );
+  const totalDeliveryCost = deliveryMode === "own" ? ownDeliveryCost : partnerDeliveryCost;
+
   // Breakdown
   const commissionAmt  = finalCardPrice * finalCommissionPct;
   const acquiringAmt   = finalCardPrice * acquiring;
@@ -253,7 +295,7 @@ export default function Calculator({ initialProduct, isManager }: Props) {
   const earlyAmt       = finalCardPrice * earlyPct;
   const totalOzonFees  = commissionAmt + acquiringAmt + serviceFee + returnsAmt + adsAmt + earlyAmt;
   const ozonPayout     = finalCardPrice - commissionAmt - acquiringAmt - serviceFee - earlyAmt;
-  const profit         = finalCardPrice - commissionAmt - acquiringAmt - serviceFee - returnsAmt - adsAmt - earlyAmt - logisticsCost - purchase;
+  const profit         = finalCardPrice - commissionAmt - acquiringAmt - serviceFee - returnsAmt - adsAmt - earlyAmt - totalDeliveryCost - purchase;
   const marginPct      = purchase > 0 ? (profit / purchase) * 100 : 0;
 
   const profitColor = profit >= 0 ? "var(--green)" : "var(--rose)";
@@ -324,7 +366,9 @@ export default function Calculator({ initialProduct, isManager }: Props) {
       `− Сервисный сбор:      ${serviceFee} ₽`,
       `− Резерв возвраты (${returnsPct}%): ${fmtI(Math.round(returnsAmt))} ₽`,
       `− Реклама (${adsPct}%):  ${fmtI(Math.round(adsAmt))} ₽`,
-      `− Логистика до ТК:     ${fmtI(logisticsCost)} ₽`,
+      deliveryMode === "own"
+        ? `− Логистика до ТК:     ${fmtI(ownDeliveryCost)} ₽`
+        : `− Доставка Ozon:       ${fmtI(partnerDeliveryCost)} ₽`,
       earlyPct > 0 ? `− Досрочная выплата (${(earlyPct * 100).toFixed(2)}%): ${fmtI(Math.round(earlyAmt))} ₽` : null,
       `− Закупочная цена:     ${fmtI(purchase)} ₽`,
       `= Ваша прибыль:        ${fmtI(Math.round(profit))} ₽`,
@@ -492,21 +536,70 @@ export default function Calculator({ initialProduct, isManager }: Props) {
             <div className="space-y-4">
               <Slider label="Желаемая прибыль" value={profitPct} min={5} max={80}
                 onChange={setProfitPct} color="var(--cyan)" />
+
+              {/* Переключатель способа доставки */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-muted-foreground">Логистика до ТК</label>
-                  {selectedProduct && selectedProduct.package_kg > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      авто: {fmtI(calcLogisticsCost(selectedProduct.package_kg))} ₽ ({selectedProduct.package_kg} кг)
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <input type="number" value={logistics} onChange={e => setLogistics(e.target.value)}
-                    className="w-full pl-3 pr-7 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
+                <label className="text-xs text-muted-foreground mb-2 block">Способ доставки</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: "own",          label: "Наша служба",   icon: "Truck" },
+                    { id: "partner_ozon", label: "Партнёры Ozon", icon: "MapPin" },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setDeliveryMode(opt.id)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                        deliveryMode === opt.id ? "border-ring" : "border-border hover:border-ring/50"
+                      }`}
+                      style={deliveryMode === opt.id
+                        ? { background: "hsla(195,90%,48%,0.08)" }
+                        : { background: "hsl(var(--secondary))" }}
+                    >
+                      <Icon name={opt.icon} size={13}
+                        style={{ color: deliveryMode === opt.id ? "hsl(var(--cyan))" : "hsl(var(--muted-foreground))" }} />
+                      <span style={{ color: deliveryMode === opt.id ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>
+                        {opt.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {/* Поле логистики — только для своей службы */}
+              {deliveryMode === "own" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs text-muted-foreground">Логистика до ТК</label>
+                    {selectedProduct && selectedProduct.package_kg > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        авто: {fmtI(calcLogisticsCost(selectedProduct.package_kg))} ₽ ({selectedProduct.package_kg} кг)
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input type="number" value={logistics} onChange={e => setLogistics(e.target.value)}
+                      className="w-full pl-3 pr-7 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Тариф партнёров Ozon — показываем при выборе */}
+              {deliveryMode === "partner_ozon" && finalCardPrice > 0 && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-border px-3 py-2.5"
+                  style={{ background: "hsl(var(--secondary))" }}>
+                  <Icon name="Info" size={13} className="text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs text-foreground font-medium">
+                      Доставка: <span className="font-mono" style={{ color: "hsl(var(--cyan))" }}>{fmtI(partnerDeliveryCost)} ₽</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      Минимальный тариф Ozon · можно изменить в настройках кабинета
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Slider label="Резерв на возвраты и отказы" value={returnsPct} min={0} max={20}
                 onChange={setReturnsPct} color="var(--amber)" />
               <Slider label="Реклама" value={adsPct} min={0} max={30}
@@ -578,7 +671,11 @@ export default function Calculator({ initialProduct, isManager }: Props) {
               <Row label="Сервисный сбор" rub="20 ₽" />
               <Row label={`Резерв возвраты`} pct={`${returnsPct}%`} rub={`${fmtI(Math.round(returnsAmt))} ₽`} />
               <Row label="Реклама" pct={`${adsPct}%`} rub={`${fmtI(Math.round(adsAmt))} ₽`} />
-              <Row label="Логистика до ТК" rub={`${fmtI(logisticsCost)} ₽`} />
+              {deliveryMode === "own" ? (
+                <Row label="Логистика до ТК" rub={`${fmtI(ownDeliveryCost)} ₽`} />
+              ) : (
+                <Row label="Доставка партнёры Ozon" rub={`${fmtI(partnerDeliveryCost)} ₽`} />
+              )}
               {earlyPct > 0 && (
                 <Row label="Досрочная выплата" pct={`${(earlyPct * 100).toFixed(2)}%`} rub={`${fmtI(Math.round(earlyAmt))} ₽`} />
               )}

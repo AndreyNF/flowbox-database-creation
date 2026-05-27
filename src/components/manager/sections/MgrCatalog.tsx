@@ -138,8 +138,18 @@ function ProductForm({ onClose, suppliers, categories }: { onClose:()=>void; sup
         <Card className="p-5">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">1. Основное</div>
           <div className="space-y-3">
-            <FieldLabel label="Торговое название *"><Input value={f.trade_name} onChange={v=>set("trade_name",v)} /></FieldLabel>
-            <FieldLabel label="Бухгалтерское название *"><Input value={f.accounting_name} onChange={v=>set("accounting_name",v)} /></FieldLabel>
+            <div>
+              <FieldLabel label="Торговое наименование *">
+                <Input value={f.trade_name} onChange={v=>set("trade_name",v)} placeholder="Двуспальная кровать Comfort 160×200" />
+              </FieldLabel>
+              <p className="text-[10px] text-muted-foreground mt-1">Отображается покупателю на Ozon</p>
+            </div>
+            <div>
+              <FieldLabel label="Учётное наименование *">
+                <Input value={f.accounting_name} onChange={v=>set("accounting_name",v)} placeholder="Кровать 2сп Comfort 160x200 дуб/белый" />
+              </FieldLabel>
+              <p className="text-[10px] text-muted-foreground mt-1">Из прайса поставщика · используется в УПД, ТТН, 1С</p>
+            </div>
             <FieldLabel label="Бренд"><Input value={f.brand} onChange={v=>set("brand",v)} /></FieldLabel>
             <FieldLabel label="Тип товара">
               <Select value={f.product_type} onChange={v=>set("product_type",v)} options={[{value:"standard",label:"Стандартный"},{value:"oversized",label:"Крупногабаритный"}]} className="w-full" />
