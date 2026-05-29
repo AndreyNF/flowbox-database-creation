@@ -10,6 +10,7 @@ from utils import (
     notify_company_users, notify_users_by_role, notify,
     send_email,
 )
+from crypto import decrypt_key
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -81,8 +82,9 @@ def handler(event: dict, context) -> dict:
         for row in invoices:
             (inv_id, inv_number, due_date_raw, total_vat,
              company_id, company_name, company_email,
-             ozon_api_key, ozon_warehouse_id, company_status,
+             ozon_api_key_enc, ozon_warehouse_id, company_status,
              manager_id) = row
+            ozon_api_key = decrypt_key(ozon_api_key_enc) if ozon_api_key_enc else None
 
             due_date = due_date_raw if isinstance(due_date_raw, date) else date.fromisoformat(str(due_date_raw))
             diff     = business_days_diff(due_date, today)  # рабочих дней до срока

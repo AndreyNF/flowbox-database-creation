@@ -3,6 +3,8 @@ import os
 import psycopg2
 from decimal import Decimal
 
+from crypto import mask_key
+
 
 def get_db():
     return psycopg2.connect(
@@ -132,13 +134,12 @@ def handler(event: dict, context) -> dict:
             row = cur.fetchone()
             if not row:
                 return {"statusCode": 404, "headers": cors, "body": json.dumps({"error": "Не найдено"})}
-            ak = row[13] or ""
             result["company"] = {
                 "id": str(row[0]), "name": row[1], "short_name": row[2], "full_name": row[3],
                 "inn": row[4], "kpp": row[5], "ogrn": row[6], "legal_address": row[7],
                 "director_name": row[8], "email": row[9], "phone": row[10],
                 "contact_person": row[11], "marketplace": row[12],
-                "ozon_api_key_masked": (ak[:4]+"..."+ak[-4:]) if len(ak)>=8 else "*"*len(ak),
+                "ozon_api_key_masked": mask_key(row[13] or ""),
                 "edo_operator": row[14], "delivery_method": row[15], "status": row[16],
                 "purchase_limit": row[17], "onboarding_step": row[18],
                 "activated_at": row[19].isoformat() if row[19] else None,

@@ -2,6 +2,8 @@ import json
 import os
 import psycopg2
 
+from crypto import encrypt_key
+
 
 def get_db():
     return psycopg2.connect(
@@ -127,8 +129,8 @@ def handler(event: dict, context) -> dict:
             (
                 body["marketplace"],
                 body.get("ozon_client_id"),
-                body.get("ozon_api_key"), body.get("ozon_warehouse_id"),
-                body.get("ym_api_key"), body.get("ym_warehouse_id"),
+                encrypt_key(body.get("ozon_api_key") or ""), body.get("ozon_warehouse_id"),
+                encrypt_key(body.get("ym_api_key") or ""), body.get("ym_warehouse_id"),
                 company_id,
             ),
         )

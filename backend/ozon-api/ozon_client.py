@@ -10,6 +10,8 @@ import os
 import psycopg2
 from datetime import datetime, timezone
 
+from crypto import decrypt_key
+
 OZON_BASE = "https://api-seller.ozon.ru"
 
 
@@ -32,16 +34,14 @@ def get_company_credentials(company_id):
         row = cur.fetchone()
         if not row or not row[0]:
             return None, None
-        # client_id хранится как ozon_warehouse_id содержит Client-Id
-        # Точнее: в company есть ozon_api_key, Client-Id нужно отдельно
-        # Проверяем platform_setting для глобального Client-Id, или берём из company
         cur.execute(
             "SELECT ozon_client_id FROM company WHERE id = %s",
             (company_id,)
         )
         row2 = cur.fetchone()
         client_id = str(row2[0]) if row2 and row2[0] else None
-        return client_id, row[0]
+        api_key = decrypt_key(row[0])  # расшифровываем AES-256-GCM
+        return client_id, api_key
     finally:
         cur.close()
         conn.close()
