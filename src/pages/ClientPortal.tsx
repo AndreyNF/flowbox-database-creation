@@ -5,6 +5,7 @@ import Catalog from "@/components/client/sections/Catalog";
 import Calculator from "@/components/client/sections/Calculator";
 import Orders from "@/components/client/sections/Orders";
 import Finance from "@/components/client/sections/Finance";
+import Payments from "@/components/client/sections/Payments";
 import Claims from "@/components/client/sections/Claims";
 import Settings from "@/components/client/sections/Settings";
 import Support from "@/components/client/sections/Support";
@@ -61,6 +62,9 @@ export default function ClientPortal() {
       )}
       {section === "orders" && (
         <Orders companyId={companyId} initialOrderId={pendingOrderId} />
+      )}
+      {section === "payments" && (
+        <Payments companyId={companyId} />
       )}
       {section === "finance" && (
         <Finance companyId={companyId} />

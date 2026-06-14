@@ -19,6 +19,12 @@
       "expectedStatus": 200
     },
     {
+      "name": "Payments section",
+      "method": "GET",
+      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=payments",
+      "expectedStatus": 200
+    },
+    {
       "name": "OPTIONS preflight",
       "method": "OPTIONS",
       "path": "/",

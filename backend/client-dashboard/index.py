@@ -377,6 +377,130 @@ def handler(event: dict, context) -> dict:
             "edo_operator": row[14], "delivery_method": row[15], "status": row[16],
         }
 
+    # ── ПЛАТЕЖИ ──────────────────────────────────────────────────────────────
+    elif section == "payments":
+        import datetime as _dt
+
+        # Итоги
+        cur.execute(
+            "SELECT COALESCE(balance, 0) FROM company WHERE id = %s",
+            (company_id,),
+        )
+        r = cur.fetchone()
+        result["balance"] = float(r[0]) if r else 0.0
+
+        cur.execute(
+            """SELECT COALESCE(SUM(total_vat + delivery_total), 0)
+               FROM invoice WHERE company_id = %s AND status = 'pending'""",
+            (company_id,),
+        )
+        result["pending_amount"] = float(cur.fetchone()[0])
+
+        cur.execute(
+            """SELECT COALESCE(SUM(total_vat + delivery_total), 0)
+               FROM invoice WHERE company_id = %s AND status = 'overdue'""",
+            (company_id,),
+        )
+        result["overdue_amount"] = float(cur.fetchone()[0])
+
+        cur.execute(
+            """SELECT COALESCE(SUM(total_vat + delivery_total), 0)
+               FROM invoice WHERE company_id = %s AND status = 'paid'
+               AND paid_at >= date_trunc('month', NOW())""",
+            (company_id,),
+        )
+        result["paid_this_month"] = float(cur.fetchone()[0])
+
+        cur.execute(
+            """SELECT COALESCE(SUM(total_vat + delivery_total), 0)
+               FROM invoice WHERE company_id = %s AND status = 'paid'""",
+            (company_id,),
+        )
+        result["paid_total"] = float(cur.fetchone()[0])
+
+        # Банковские поступления этой компании
+        cur.execute(
+            """SELECT bt.id, bt.bank_operation_id, bt.amount, bt.payment_purpose,
+                      bt.match_status, bt.operation_date, bt.received_at,
+                      bt.invoice_number,
+                      i.overpayment_amount
+               FROM bank_transaction bt
+               LEFT JOIN invoice i ON i.id = bt.matched_invoice_id
+               WHERE bt.company_id = %s
+               ORDER BY bt.received_at DESC NULLS LAST
+               LIMIT 50""",
+            (company_id,),
+        )
+        bank_rows = cur.fetchall()
+
+        MATCH_LABELS = {
+            "auto_matched":       "Автоматически",
+            "manual_matched":     "Вручную",
+            "overpayment":        "Переплата",
+            "underpayment":       "Недоплата",
+            "needs_distribution": "Ожидает разбивки",
+            "unmatched":          "Не сопоставлен",
+        }
+
+        result["bank_payments"] = [
+            {
+                "id": str(r[0]),
+                "bank_operation_id": r[1],
+                "amount": float(r[2]),
+                "payment_purpose": r[3] or "",
+                "match_status": r[4] or "unmatched",
+                "match_label": MATCH_LABELS.get(r[4] or "", r[4] or ""),
+                "operation_date": r[5].isoformat() if r[5] else None,
+                "received_at": r[6].isoformat() if r[6] else None,
+                "invoice_number": r[7],
+                "overpayment_amount": float(r[8]) if r[8] else 0,
+            }
+            for r in bank_rows
+        ]
+
+        # Счета (все статусы)
+        cur.execute(
+            """SELECT id, invoice_number, created_at, due_date,
+                      total_vat + delivery_total, status, paid_at,
+                      pdf_url, overpayment_amount
+               FROM invoice WHERE company_id = %s
+               ORDER BY created_at DESC
+               LIMIT 50""",
+            (company_id,),
+        )
+        result["invoices"] = [
+            {
+                "id": str(r[0]), "invoice_number": r[1],
+                "created_at": r[2].isoformat() if r[2] else None,
+                "due_date": r[3].isoformat() if r[3] else None,
+                "amount": float(r[4]),
+                "status": r[5],
+                "paid_at": r[6].isoformat() if r[6] else None,
+                "pdf_url": r[7],
+                "overpayment_amount": float(r[8]) if r[8] else 0,
+            }
+            for r in cur.fetchall()
+        ]
+
+        # История транзакций (все типы)
+        cur.execute(
+            """SELECT id, created_at, type, amount, balance_after, comment
+               FROM transaction WHERE company_id = %s
+               ORDER BY created_at DESC
+               LIMIT 100""",
+            (company_id,),
+        )
+        result["transactions"] = [
+            {
+                "id": str(r[0]),
+                "created_at": r[1].isoformat() if r[1] else None,
+                "type": r[2], "amount": float(r[3]),
+                "balance_after": float(r[4]) if r[4] is not None else 0,
+                "comment": r[5] or "",
+            }
+            for r in cur.fetchall()
+        ]
+
     cur.close()
     conn.close()
 

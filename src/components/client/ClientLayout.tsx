@@ -5,13 +5,14 @@ import Icon from "@/components/ui/icon";
 
 export type ClientSection =
   | "overview" | "catalog" | "calculator" | "orders"
-  | "finance" | "claims" | "settings" | "support";
+  | "finance" | "payments" | "claims" | "settings" | "support";
 
 const NAV: { id: ClientSection; label: string; icon: string }[] = [
   { id: "overview",    label: "Обзор",       icon: "LayoutDashboard" },
   { id: "catalog",     label: "Каталог",     icon: "Package" },
   { id: "calculator",  label: "Калькулятор", icon: "Calculator" },
   { id: "orders",      label: "Заказы",      icon: "ShoppingCart" },
+  { id: "payments",    label: "Платежи",     icon: "CreditCard" },
   { id: "finance",     label: "Финансы",     icon: "Wallet" },
   { id: "claims",      label: "Рекламации",  icon: "AlertOctagon" },
   { id: "settings",    label: "Настройки",   icon: "Settings" },
