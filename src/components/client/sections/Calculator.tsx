@@ -2,157 +2,17 @@ import { useState, useEffect, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import { SectionHeader } from "../shared";
 import { getCurrentUser } from "@/lib/auth";
+import {
+  CALC_URL, PLATFORM_MARKUP,
+  Tariff, Product, DeliveryRate, CalcProduct,
+  fmt, fmtI,
+  calcLogisticsCost, calcPartnerDeliveryCost, getCommissionRate, calcCardPrice,
+} from "./CalculatorTypes";
+import { Row } from "./CalculatorUI";
+import CalculatorLeftColumn from "./CalculatorLeftColumn";
 
-const CALC_URL = "https://functions.poehali.dev/1be91c0d-825b-4a5f-9488-4a1833027306";
-
-// ── types ──────────────────────────────────────────────────────────────────
-interface Tariff {
-  id: string; category_name: string; product_type: string;
-  commission_lt_1500: number; commission_1500_5000: number;
-  commission_5000_10000: number; commission_gt_10000: number;
-  acquiring_percent: number; service_fee_fixed: number;
-  early_payout_standard: number; early_payout_ozon_bank: number;
-}
-interface Product {
-  id: string; trade_name: string; purchase_price: number;
-  package_kg: number; our_price: number | null; category_ozon: string | null;
-}
-interface DeliveryRate {
-  price_from: number; price_to: number | null; cost: number;
-}
-interface CalcProduct { id: string; trade_name: string; our_price: number; }
 interface Props { initialProduct?: CalcProduct | null; isManager?: boolean; }
 
-// ── helpers ────────────────────────────────────────────────────────────────
-function fmt(n: number): string {
-  return n.toLocaleString("ru", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-}
-function fmtI(n: number): string {
-  return n.toLocaleString("ru", { maximumFractionDigits: 0 });
-}
-
-function calcLogisticsCost(packageKg: number): number {
-  if (packageKg <= 0) return 0;
-  if (packageKg <= 100) return 600;
-  return 600 + (packageKg - 100) * 2.5;
-}
-
-function calcPartnerDeliveryCost(orderPrice: number, rates: DeliveryRate[]): number {
-  if (!rates.length) {
-    if (orderPrice < 500)   return 200;
-    if (orderPrice < 1000)  return 300;
-    if (orderPrice < 3000)  return 400;
-    if (orderPrice < 7500)  return 700;
-    if (orderPrice < 15000) return 1300;
-    if (orderPrice < 30000) return 1900;
-    if (orderPrice < 75000) return 2200;
-    return 2500;
-  }
-  const match = rates.find(r =>
-    orderPrice >= r.price_from && (r.price_to === null || orderPrice < r.price_to)
-  );
-  return match ? match.cost : rates[rates.length - 1].cost;
-}
-
-function getCommissionRate(tariff: Tariff, price: number): number {
-  if (price < 1500)  return tariff.commission_lt_1500;
-  if (price < 5000)  return tariff.commission_1500_5000;
-  if (price < 10000) return tariff.commission_5000_10000;
-  return tariff.commission_gt_10000;
-}
-
-// ── FORMULA ────────────────────────────────────────────────────────────────
-// База = purchase × 1.08 + delivery_to_tc (только если partner_ozon, иначе 0)
-// X = База × (1 + profit%)
-//     ÷ (1 - early%)
-//     ÷ (1 - commission% - 0.019 - returns% - ads%)
-//   + service_fee
-// Доставка партнёров Ozon считается от цены карточки (итерация)
-const PLATFORM_MARKUP = 0.08; // 8% — наценка платформы, скрыта от клиента
-
-function calcCardPrice(
-  base: number,         // purchase × 1.08 + delivery_to_tc (if partner)
-  profitPct: number,
-  earlyPct: number,
-  commissionPct: number,
-  returnsPct: number,
-  adsPct: number,
-  serviceFee: number,
-): number {
-  const acquiring = 0.019;
-  const denom2 = 1 - commissionPct - acquiring - returnsPct - adsPct;
-  if (denom2 <= 0) return 0;
-  const x = (base * (1 + profitPct)) / (1 - earlyPct) / denom2;
-  return x + serviceFee;
-}
-
-// ── Slider input ────────────────────────────────────────────────────────────
-function Slider({ label, value, min, max, step = 1, unit = "%", onChange, color }: {
-  label: string; value: number; min: number; max: number; step?: number;
-  unit?: string; onChange: (v: number) => void; color?: string;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-muted-foreground">{label}</label>
-        <span className="text-xs font-mono font-semibold text-foreground">{value}{unit}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
-        style={color ? { accentColor: `hsl(${color})` } : {}}
-      />
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-        <span>{min}{unit}</span><span>{max}{unit}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Number input ────────────────────────────────────────────────────────────
-function NumInput({ label, value, onChange, prefix, suffix, readOnly, hint }: {
-  label: string; value: string; onChange?: (v: string) => void;
-  prefix?: string; suffix?: string; readOnly?: boolean; hint?: string;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-muted-foreground">{label}</label>
-        {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
-      </div>
-      <div className="relative flex items-center">
-        {prefix && <span className="absolute left-3 text-xs text-muted-foreground">{prefix}</span>}
-        <input type="number" value={value} readOnly={readOnly}
-          onChange={e => onChange?.(e.target.value)}
-          className={`w-full py-2.5 text-sm rounded-lg border border-border font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors
-            ${prefix ? "pl-7" : "pl-3"} ${suffix ? "pr-12" : "pr-3"}
-            ${readOnly ? "bg-secondary/50 text-muted-foreground cursor-not-allowed" : "bg-secondary"}`}
-        />
-        {suffix && <span className="absolute right-3 text-xs text-muted-foreground">{suffix}</span>}
-      </div>
-    </div>
-  );
-}
-
-// ── Row in detail table ─────────────────────────────────────────────────────
-function Row({ label, pct, rub, minus = true, bold, sep, color }: {
-  label: string; pct?: string; rub: string;
-  minus?: boolean; bold?: boolean; sep?: boolean; color?: string;
-}) {
-  return (
-    <div className={`flex items-center justify-between py-2 text-xs ${sep ? "border-t border-border mt-1 pt-3" : "border-b border-border/50 last:border-0"}`}>
-      <span className={bold ? "text-foreground font-medium" : "text-muted-foreground"}>{label}</span>
-      <div className="flex items-center gap-3 font-mono">
-        {pct && <span className="text-muted-foreground">{pct}</span>}
-        <span className={bold ? "font-bold text-sm" : ""} style={color ? { color: `hsl(${color})` } : {}}>
-          {minus && !bold ? "−" : ""}{rub}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ── Main component ──────────────────────────────────────────────────────────
 export default function Calculator({ initialProduct, isManager }: Props) {
   const user = getCurrentUser();
   const companyId = user?.company_id || "demo";
@@ -387,254 +247,43 @@ export default function Calculator({ initialProduct, isManager }: Props) {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* ═══ LEFT COLUMN ═══ */}
-        <div className="space-y-4">
-
-          {/* Блок 1: Товар */}
-          <Block title="1. Товар" icon="Package">
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs text-muted-foreground">Выбрать из каталога (необязательно)</label>
-              </div>
-              {selectedProduct ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-secondary">
-                  <Icon name="Package" size={13} style={{ color: "hsl(var(--cyan))" }} />
-                  <span className="text-xs text-foreground flex-1 truncate">{selectedProduct.trade_name}</span>
-                  <button onClick={() => { setSelectedProduct(null); setPurchasePrice(""); }}
-                    className="text-muted-foreground hover:text-foreground">
-                    <Icon name="X" size={13} />
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setShowProductSearch(true)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-ring hover:text-foreground transition-all text-left flex items-center gap-2">
-                  <Icon name="Search" size={13} /> Найти товар из каталога...
-                </button>
-              )}
-
-              {showProductSearch && (
-                <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "hsl(var(--card))" }}>
-                  <div className="p-2 border-b border-border">
-                    <input autoFocus type="text" value={productQuery}
-                      onChange={e => setProductQuery(e.target.value)}
-                      placeholder="Поиск по названию..."
-                      className="w-full px-2.5 py-1.5 text-xs rounded border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground" />
-                  </div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {productsLoading
-                      ? <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-                          <Icon name="Loader2" size={13} className="animate-spin" /> Загрузка...
-                        </div>
-                      : filteredProducts.length === 0
-                      ? <div className="py-4 text-center text-xs text-muted-foreground">Не найдено</div>
-                      : filteredProducts.slice(0, 30).map(p => (
-                          <button key={p.id} onClick={() => selectProduct(p)}
-                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left transition-colors border-b border-border last:border-0">
-                            <Icon name="Package" size={11} className="text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-foreground truncate">{p.trade_name}</div>
-                              <div className="text-[10px] text-muted-foreground font-mono">
-                                {p.purchase_price ? `${fmtI(p.purchase_price)} ₽` : "—"}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                  </div>
-                  <div className="p-2 border-t border-border">
-                    <button onClick={() => setShowProductSearch(false)}
-                      className="w-full text-xs text-muted-foreground hover:text-foreground">
-                      Закрыть
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <NumInput label="Закупочная цена с НДС" value={purchasePrice}
-              onChange={setPurchasePrice} suffix="₽" hint="вашa цена" />
-          </Block>
-
-          {/* Блок 2: Комиссии Ozon */}
-          <Block title="2. Комиссии Ozon" icon="BarChart3">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Категория товара</label>
-                {tariffsLoading ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Icon name="Loader2" size={13} className="animate-spin" /> Загрузка...
-                  </div>
-                ) : tariffs.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">Категории не найдены в базе</div>
-                ) : (
-                  <select
-                    value={selectedTariff?.id || ""}
-                    onChange={e => {
-                      const t = tariffs.find(t => t.id === e.target.value);
-                      setSelectedTariff(t || null);
-                      setCommissionOverride("");
-                    }}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                    {tariffs.map(t => (
-                      <option key={t.id} value={t.id}>{t.category_name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {selectedTariff && (
-                <div className="grid grid-cols-4 gap-1 rounded-lg p-2" style={{ background: "hsl(var(--secondary))" }}>
-                  {[
-                    { label: "<1500", val: (selectedTariff.commission_lt_1500 * 100).toFixed(1) },
-                    { label: "1500–5К", val: (selectedTariff.commission_1500_5000 * 100).toFixed(1) },
-                    { label: "5К–10К", val: (selectedTariff.commission_5000_10000 * 100).toFixed(1) },
-                    { label: ">10000", val: (selectedTariff.commission_gt_10000 * 100).toFixed(1) },
-                  ].map(r => {
-                    const isActive = (
-                      (r.label === "<1500" && finalCardPrice < 1500) ||
-                      (r.label === "1500–5К" && finalCardPrice >= 1500 && finalCardPrice < 5000) ||
-                      (r.label === "5К–10К" && finalCardPrice >= 5000 && finalCardPrice < 10000) ||
-                      (r.label === ">10000" && finalCardPrice >= 10000)
-                    );
-                    return (
-                      <div key={r.label} className={`rounded p-1.5 text-center transition-all ${isActive ? "border" : ""}`}
-                        style={isActive ? { borderColor: "hsl(var(--cyan))", background: "hsla(195,90%,48%,0.1)" } : {}}>
-                        <div className="text-[9px] text-muted-foreground">{r.label}</div>
-                        <div className={`text-xs font-mono font-semibold ${isActive ? "" : "text-muted-foreground"}`}
-                          style={isActive ? { color: "hsl(var(--cyan))" } : {}}>{r.val}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs text-muted-foreground">% Вознаграждения</label>
-                    {commissionOverride !== "" && (
-                      <button onClick={() => setCommissionOverride("")}
-                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
-                        <Icon name="RotateCcw" size={10} />авто
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <input type="number"
-                      value={commissionOverride !== "" ? commissionOverride : (finalCommissionPct * 100).toFixed(1)}
-                      onChange={e => setCommissionOverride(e.target.value)}
-                      readOnly={!managerMode}
-                      className={`w-full pl-3 pr-7 py-2.5 text-sm rounded-lg border border-border font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring
-                        ${!managerMode ? "bg-secondary/50 text-muted-foreground cursor-not-allowed" : "bg-secondary"}`} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-                  </div>
-                </div>
-                <NumInput label="Эквайринг" value="1.9" suffix="%" readOnly hint="фикс." />
-              </div>
-
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border"
-                style={{ background: "hsl(var(--secondary))" }}>
-                <span className="text-xs text-muted-foreground">Сервисный сбор</span>
-                <span className="text-xs font-mono text-foreground">20 ₽</span>
-              </div>
-            </div>
-          </Block>
-
-          {/* Блок 3: Параметры */}
-          <Block title="3. Ваши параметры" icon="SlidersHorizontal">
-            <div className="space-y-4">
-              <Slider label="Желаемая прибыль" value={profitPct} min={5} max={80}
-                onChange={setProfitPct} color="var(--cyan)" />
-
-              {/* Способ доставки — только менеджер */}
-              {managerMode && (
-                <div>
-                  <label className="text-xs text-muted-foreground mb-2 block">Способ доставки</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {([
-                      { id: "own",          label: "Наша служба",   icon: "Truck" },
-                      { id: "partner_ozon", label: "Партнёры Ozon", icon: "MapPin" },
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setDeliveryMode(opt.id)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          deliveryMode === opt.id ? "border-ring" : "border-border hover:border-ring/50"
-                        }`}
-                        style={deliveryMode === opt.id
-                          ? { background: "hsla(195,90%,48%,0.08)" }
-                          : { background: "hsl(var(--secondary))" }}
-                      >
-                        <Icon name={opt.icon} size={13}
-                          style={{ color: deliveryMode === opt.id ? "hsl(var(--cyan))" : "hsl(var(--muted-foreground))" }} />
-                        <span style={{ color: deliveryMode === opt.id ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>
-                          {opt.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Логистика до ТК — только менеджер, только при own */}
-              {managerMode && deliveryMode === "own" && (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs text-muted-foreground">Логистика до ТК</label>
-                    {selectedProduct && selectedProduct.package_kg > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        авто: {fmtI(calcLogisticsCost(selectedProduct.package_kg))} ₽ ({selectedProduct.package_kg} кг)
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <input type="number" value={logistics} onChange={e => setLogistics(e.target.value)}
-                      className="w-full pl-3 pr-7 py-2.5 text-sm rounded-lg border border-border bg-secondary text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Тариф партнёров Ozon — только менеджер */}
-              {managerMode && deliveryMode === "partner_ozon" && finalCardPrice > 0 && (
-                <div className="flex items-start gap-2.5 rounded-xl border border-border px-3 py-2.5"
-                  style={{ background: "hsl(var(--secondary))" }}>
-                  <Icon name="Info" size={13} className="text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-xs text-foreground font-medium">
-                      Доставка Ozon: <span className="font-mono" style={{ color: "hsl(var(--cyan))" }}>{fmtI(partnerDeliveryCost)} ₽</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      Минимальный тариф Ozon · включён в цену карточки
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Slider label="Резерв на возвраты и отказы" value={returnsPct} min={0} max={20}
-                onChange={setReturnsPct} color="var(--amber)" />
-              <Slider label="Реклама" value={adsPct} min={0} max={30}
-                onChange={setAdsPct} color="var(--violet)" />
-            </div>
-          </Block>
-
-          {/* Блок 4: Досрочная */}
-          <Block title="4. Досрочная выплата" icon="Zap">
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "none", label: "Нет", sub: "0%" },
-                { id: "standard", label: "Обычный", sub: `${((selectedTariff?.early_payout_standard ?? 0.049) * 100).toFixed(2)}%` },
-                { id: "ozon_bank", label: "Ozon Банк", sub: `${((selectedTariff?.early_payout_ozon_bank ?? 0.0339) * 100).toFixed(2)}%` },
-              ].map(opt => (
-                <button key={opt.id} onClick={() => setEarlyMode(opt.id as typeof earlyMode)}
-                  className={`py-3 rounded-xl border text-center transition-all ${earlyMode === opt.id ? "border-ring" : "border-border hover:border-ring/50"}`}
-                  style={earlyMode === opt.id ? { background: "hsla(195,90%,48%,0.1)" } : { background: "hsl(var(--secondary))" }}>
-                  <div className="text-xs font-semibold text-foreground">{opt.label}</div>
-                  <div className="text-[11px] font-mono mt-0.5"
-                    style={{ color: earlyMode === opt.id ? "hsl(var(--cyan))" : "hsl(var(--muted-foreground))" }}>{opt.sub}</div>
-                </button>
-              ))}
-            </div>
-          </Block>
-        </div>
+        <CalculatorLeftColumn
+          selectedProduct={selectedProduct}
+          purchasePrice={purchasePrice}
+          showProductSearch={showProductSearch}
+          productQuery={productQuery}
+          productsLoading={productsLoading}
+          filteredProducts={filteredProducts}
+          onProductClear={() => { setSelectedProduct(null); setPurchasePrice(""); }}
+          onProductSearchOpen={() => setShowProductSearch(true)}
+          onProductSearchClose={() => setShowProductSearch(false)}
+          onProductQueryChange={setProductQuery}
+          onProductSelect={selectProduct}
+          onPurchasePriceChange={setPurchasePrice}
+          tariffs={tariffs}
+          tariffsLoading={tariffsLoading}
+          selectedTariff={selectedTariff}
+          commissionOverride={commissionOverride}
+          finalCardPrice={finalCardPrice}
+          finalCommissionPct={finalCommissionPct}
+          managerMode={managerMode}
+          onTariffChange={setSelectedTariff}
+          onCommissionOverrideChange={setCommissionOverride}
+          onCommissionOverrideClear={() => setCommissionOverride("")}
+          profitPct={profitPct}
+          returnsPct={returnsPct}
+          adsPct={adsPct}
+          onProfitChange={setProfitPct}
+          onReturnsChange={setReturnsPct}
+          onAdsChange={setAdsPct}
+          deliveryMode={deliveryMode}
+          logistics={logistics}
+          partnerDeliveryCost={partnerDeliveryCost}
+          onDeliveryModeChange={setDeliveryMode}
+          onLogisticsChange={setLogistics}
+          earlyMode={earlyMode}
+          onEarlyModeChange={setEarlyMode}
+        />
 
         {/* ═══ RIGHT COLUMN ═══ */}
         <div className="space-y-4">
@@ -742,22 +391,6 @@ export default function Calculator({ initialProduct, isManager }: Props) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Block wrapper ───────────────────────────────────────────────────────────
-function Block({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-border p-5" style={{ background: "hsl(var(--card))" }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: "hsla(195,90%,48%,0.12)" }}>
-          <Icon name={icon} size={13} style={{ color: "hsl(var(--cyan))" }} />
-        </div>
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-      </div>
-      {children}
     </div>
   );
 }
