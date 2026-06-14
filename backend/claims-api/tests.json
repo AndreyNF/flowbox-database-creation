@@ -6,6 +6,7 @@
     {"name": "action - missing params", "method": "POST", "path": "/?section=action", "body": {}, "expectedStatus": 400},
     {"name": "warehouse - all items", "method": "GET", "path": "/?section=warehouse&stock_status=all", "expectedStatus": 200},
     {"name": "priority_check - missing product_id", "method": "GET", "path": "/?section=priority_check", "expectedStatus": 400},
+    {"name": "upload_photo - missing data", "method": "POST", "path": "/?section=upload_photo", "body": {}, "expectedStatus": 400},
     {"name": "unknown section", "method": "GET", "path": "/?section=unknown", "expectedStatus": 400}
   ]
 }

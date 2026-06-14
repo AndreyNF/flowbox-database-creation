@@ -543,7 +543,6 @@ def handler(event: dict, context) -> dict:
             ]
 
         elif section == "force_logout" and method == "POST":
-            # Инвалидировать все refresh_token
             cur.execute("UPDATE \"user\" SET refresh_token=NULL, refresh_expires=NULL WHERE archived_at IS NULL")
             cur.execute(
                 "INSERT INTO admin_action_log (admin_id,action,details) VALUES (%s,'force_logout_all',%s)",
@@ -552,6 +551,84 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             result["ok"] = True
             result["count"] = cur.rowcount
+
+        # ══════════════════════════════════════════════════════════════════════
+        # СОЗДАНИЕ КЛИЕНТА ВРУЧНУЮ (без онбординга)
+        # ══════════════════════════════════════════════════════════════════════
+        elif section == "create_client" and method == "POST":
+            import hashlib, os as _os
+            from crypto import encrypt_key
+
+            co  = body.get("company", {})
+            usr = body.get("user", {})
+
+            email = (usr.get("email") or "").strip().lower()
+            if not email:
+                cur.close(); conn.close()
+                return resp(400, {"error": "Email пользователя обязателен"})
+            if not co.get("name") or not co.get("inn"):
+                cur.close(); conn.close()
+                return resp(400, {"error": "Название и ИНН компании обязательны"})
+
+            # Проверка уникальности email
+            cur.execute('SELECT id FROM "user" WHERE email=%s AND archived_at IS NULL', (email,))
+            if cur.fetchone():
+                cur.close(); conn.close()
+                return resp(409, {"error": "Пользователь с таким email уже существует"})
+
+            # Зашифровать API-ключи
+            ozon_api_key = encrypt_key(co.get("ozon_api_key") or "")
+            ym_api_key   = encrypt_key(co.get("ym_api_key") or "")
+
+            # Создать компанию (статус active — пропускаем онбординг)
+            cur.execute(
+                """INSERT INTO company
+                   (name, inn, kpp, legal_address, director_name, phone, email,
+                    contact_person, marketplace, ozon_client_id, ozon_api_key,
+                    ozon_warehouse_id, ym_api_key, edo_operator, delivery_method,
+                    purchase_limit, status, onboarding_step, activated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                           'active', 7, NOW())
+                   RETURNING id""",
+                (
+                    co.get("name"), co.get("inn"), co.get("kpp") or None,
+                    co.get("legal_address") or None, co.get("director_name") or None,
+                    co.get("phone") or None, co.get("email") or None,
+                    co.get("contact_person") or None, co.get("marketplace", "ozon"),
+                    co.get("ozon_client_id") or None,
+                    ozon_api_key or None,
+                    co.get("ozon_warehouse_id") or None,
+                    ym_api_key or None,
+                    co.get("edo_operator") or None,
+                    co.get("delivery_method", "own"),
+                    float(co.get("purchase_limit") or 0),
+                ),
+            )
+            company_id = str(cur.fetchone()[0])
+
+            # Создать пользователя с ролью client
+            temp_pw = _os.urandom(5).hex()  # 10 символов hex
+            salt    = _os.urandom(16).hex()
+            h       = hashlib.pbkdf2_hmac("sha256", temp_pw.encode(), salt.encode(), 100_000).hex()
+            pw_hash = f"{salt}:{h}"
+
+            cur.execute(
+                """INSERT INTO "user" (name, email, phone, role, password_hash, company_id)
+                   VALUES (%s, %s, %s, 'client', %s, %s)
+                   RETURNING id""",
+                (
+                    usr.get("name", ""), email,
+                    usr.get("phone") or None,
+                    pw_hash, company_id,
+                ),
+            )
+            user_id = str(cur.fetchone()[0])
+
+            conn.commit()
+            result["ok"] = True
+            result["company_id"] = company_id
+            result["user_id"]    = user_id
+            result["temp_password"] = temp_pw
 
         else:
             return resp(400, {"error": f"Неизвестный раздел: {section}"})

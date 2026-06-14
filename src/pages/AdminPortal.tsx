@@ -10,24 +10,34 @@ import AdminTariffs   from "@/components/admin/AdminTariffs";
 import AdminZones     from "@/components/admin/AdminZones";
 import AdminArchive   from "@/components/admin/AdminArchive";
 import AdminSecurity  from "@/components/admin/AdminSecurity";
+import MgrClients     from "@/components/manager/sections/MgrClients";
+import MgrCatalog     from "@/components/manager/sections/MgrCatalog";
+import AdminCreateClient from "@/components/admin/AdminCreateClient";
 
-type Section = "overview"|"users"|"settings"|"bank"|"tariffs"|"zones"|"archive"|"security";
+type Section =
+  | "overview" | "users" | "settings" | "bank" | "tariffs"
+  | "zones" | "archive" | "security"
+  | "clients" | "catalog" | "create_client";
 
 const NAV: { id: Section; label: string; icon: string; group: string }[] = [
-  { id: "overview",  label: "Обзор",          icon: "LayoutDashboard", group: "Главная" },
-  { id: "users",     label: "Пользователи",    icon: "Users",           group: "Управление" },
-  { id: "settings",  label: "Настройки",       icon: "Settings",        group: "Управление" },
-  { id: "bank",      label: "Банк",            icon: "Banknote",        group: "Финансы" },
-  { id: "tariffs",   label: "Тарифы",          icon: "Percent",         group: "Финансы" },
-  { id: "zones",     label: "Зоны доставки",   icon: "MapPin",          group: "Логистика" },
-  { id: "archive",   label: "Архив",           icon: "Archive",         group: "Данные" },
-  { id: "security",  label: "Безопасность",    icon: "Shield",          group: "Данные" },
+  { id: "overview",       label: "Обзор",              icon: "LayoutDashboard", group: "Главная" },
+  { id: "clients",        label: "Клиенты",             icon: "Building2",       group: "Управление" },
+  { id: "create_client",  label: "Создать клиента",     icon: "UserPlus",        group: "Управление" },
+  { id: "catalog",        label: "Каталог товаров",     icon: "Package",         group: "Управление" },
+  { id: "users",          label: "Пользователи",        icon: "Users",           group: "Управление" },
+  { id: "settings",       label: "Настройки",           icon: "Settings",        group: "Управление" },
+  { id: "bank",           label: "Банк",                icon: "Banknote",        group: "Финансы" },
+  { id: "tariffs",        label: "Тарифы",              icon: "Percent",         group: "Финансы" },
+  { id: "zones",          label: "Зоны доставки",       icon: "MapPin",          group: "Логистика" },
+  { id: "archive",        label: "Архив",               icon: "Archive",         group: "Данные" },
+  { id: "security",       label: "Безопасность",        icon: "Shield",          group: "Данные" },
 ];
 
 const SECTION_LABELS: Record<Section, string> = {
   overview: "Обзор", users: "Пользователи", settings: "Настройки",
   bank: "Банк", tariffs: "Тарифы", zones: "Зоны доставки",
   archive: "Архив", security: "Безопасность",
+  clients: "Клиенты", catalog: "Каталог товаров", create_client: "Создать клиента",
 };
 
 export default function AdminPortal() {
@@ -137,14 +147,17 @@ export default function AdminPortal() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {active === "overview"  && <AdminOverview />}
-          {active === "users"     && <AdminUsers />}
-          {active === "settings"  && <AdminSettings />}
-          {active === "bank"      && <AdminBank />}
-          {active === "tariffs"   && <AdminTariffs />}
-          {active === "zones"     && <AdminZones />}
-          {active === "archive"   && <AdminArchive />}
-          {active === "security"  && <AdminSecurity />}
+          {active === "overview"      && <AdminOverview />}
+          {active === "clients"       && <MgrClients />}
+          {active === "create_client" && <AdminCreateClient onCreated={() => setActive("clients")} />}
+          {active === "catalog"       && <MgrCatalog />}
+          {active === "users"         && <AdminUsers />}
+          {active === "settings"      && <AdminSettings />}
+          {active === "bank"          && <AdminBank />}
+          {active === "tariffs"       && <AdminTariffs />}
+          {active === "zones"         && <AdminZones />}
+          {active === "archive"       && <AdminArchive />}
+          {active === "security"      && <AdminSecurity />}
         </div>
       </main>
     </div>

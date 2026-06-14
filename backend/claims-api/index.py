@@ -276,7 +276,43 @@ def handler(event: dict, context) -> dict:
             result["claim_id"] = new_id
             result["claim_number"] = claim_number
 
-        # ── МЕНЕДЖЕР: добавление фото ─────────────────────────────────────────
+        # ── ЗАГРУЗКА ОДНОГО ФОТО В S3 ─────────────────────────────────────────
+        elif section == "upload_photo":
+            import base64 as _b64, uuid as _uuid
+            import boto3
+
+            claim_id  = body.get("claim_id")
+            b64_data  = body.get("data")        # base64 без data:...; префикса
+            mime_type = body.get("mime_type", "image/jpeg")
+            if not claim_id or not b64_data:
+                return resp(400, {"error": "claim_id и data обязательны"})
+
+            ext = "jpg"
+            if "png"  in mime_type: ext = "png"
+            elif "heic" in mime_type: ext = "heic"
+            elif "webp" in mime_type: ext = "webp"
+
+            key = f"claims/{claim_id}/{_uuid.uuid4().hex}.{ext}"
+            file_bytes = _b64.b64decode(b64_data)
+
+            s3 = boto3.client(
+                "s3",
+                endpoint_url="https://bucket.poehali.dev",
+                aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+                aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+            )
+            s3.put_object(Bucket="files", Key=key, Body=file_bytes, ContentType=mime_type)
+            cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
+            cur.execute(
+                "UPDATE claim SET photos=COALESCE(photos,'[]'::jsonb)||%s::jsonb WHERE id=%s",
+                (json.dumps([cdn_url]), claim_id),
+            )
+            conn.commit()
+            result["ok"] = True
+            result["url"] = cdn_url
+
+        # ── МЕНЕДЖЕР: добавление фото (legacy — список URL) ───────────────────
         elif section == "mgr_photos":
             claim_id = body.get("claim_id")
             photos   = body.get("photos", [])

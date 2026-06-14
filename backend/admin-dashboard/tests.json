@@ -9,6 +9,7 @@
     {"name": "zones",          "method": "GET",     "path": "/?section=zones",          "expectedStatus": 200},
     {"name": "archive",        "method": "GET",     "path": "/?section=archive",        "expectedStatus": 200},
     {"name": "security",       "method": "GET",     "path": "/?section=security",       "expectedStatus": 200},
+    {"name": "create_client - missing data", "method": "POST", "path": "/?section=create_client", "expectedStatus": 400, "body": {}, "bodyMatcher": "partial"},
     {"name": "unknown section","method": "GET",     "path": "/?section=unknown",        "expectedStatus": 400}
   ]
 }

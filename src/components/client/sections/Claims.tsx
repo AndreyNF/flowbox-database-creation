@@ -50,8 +50,11 @@ export default function Claims({ companyId }: Props) {
   const [createType, setCreateType]   = useState("defect");
   const [createDesc, setCreateDesc]   = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  // Фото при создании
+  const [createPhotos, setCreatePhotos] = useState<{ file: File; preview: string }[]>([]);
+  const createFileRef = useRef<HTMLInputElement>(null);
 
-  // Загрузка фото клиентом
+  // Загрузка фото к существующей рекламации
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -104,24 +107,30 @@ export default function Claims({ companyId }: Props) {
     }
   }
 
+  // Загрузка одного файла в S3 через backend
+  async function uploadPhotoToS3(file: File, claimId: string): Promise<string> {
+    const b64 = await new Promise<string>((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res((reader.result as string).split(",")[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const d = await claimsPost("upload_photo", {
+      claim_id: claimId,
+      data: b64,
+      mime_type: file.type || "image/jpeg",
+    });
+    return d.url as string;
+  }
+
   async function handleFileUpload(files: FileList | null) {
     if (!files || !detail) return;
     setUploadLoading(true);
     setError("");
     try {
-      const urls: string[] = [];
-      for (const file of Array.from(files)) {
-        const reader = new FileReader();
-        const b64 = await new Promise<string>((res, rej) => {
-          reader.onload = () => res((reader.result as string).split(",")[1]);
-          reader.onerror = rej;
-          reader.readAsDataURL(file);
-        });
-        // Загружаем через S3 (через claims-api section=upload_photo нет — используем base64 в описании)
-        // Здесь просто добавляем placeholder — реальный upload через отдельный эндпоинт
-        urls.push(`data:${file.type};base64,${b64}`);
+      for (const file of Array.from(files).slice(0, 10)) {
+        await uploadPhotoToS3(file, detail.id);
       }
-      await claimsPost("mgr_photos", { claim_id: detail.id, photos: urls });
       await loadDetail(detail.id);
     } catch (e: unknown) {
       setError((e as Error).message);
@@ -130,18 +139,41 @@ export default function Claims({ companyId }: Props) {
     }
   }
 
+  function handleCreatePhotoSelect(files: FileList | null) {
+    if (!files) return;
+    const newPhotos = Array.from(files).slice(0, 10 - createPhotos.length).map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setCreatePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+  }
+
+  function removeCreatePhoto(idx: number) {
+    setCreatePhotos(prev => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
   async function createClaim() {
     if (!createDesc.trim()) { setError("Введите описание проблемы"); return; }
     setCreateLoading(true);
     setError("");
     try {
-      await claimsPost("create", {
+      const res = await claimsPost("create", {
         company_id: companyId,
         type: createType,
         description: createDesc,
       });
+      // Загружаем фото в S3 если есть
+      if (createPhotos.length > 0 && res.claim_id) {
+        for (const { file } of createPhotos) {
+          await uploadPhotoToS3(file, res.claim_id as string);
+        }
+      }
       setCreateMode(false);
       setCreateDesc("");
+      setCreatePhotos([]);
       loadList();
     } catch (e: unknown) {
       setError((e as Error).message);
@@ -436,6 +468,53 @@ export default function Claims({ companyId }: Props) {
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground"
               />
             </div>
+
+            {/* Фото при создании */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-muted-foreground">
+                  Фото (до 10 файлов, jpg/png/heic)
+                </label>
+                {createPhotos.length < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => createFileRef.current?.click()}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-ring px-2 py-1 rounded-lg transition-all"
+                  >
+                    <Icon name="Paperclip" size={11} /> Прикрепить
+                  </button>
+                )}
+              </div>
+              <input
+                ref={createFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/heic,image/webp"
+                multiple
+                className="hidden"
+                onChange={e => handleCreatePhotoSelect(e.target.files)}
+              />
+              {createPhotos.length > 0 && (
+                <div className="grid grid-cols-5 gap-2 mt-2">
+                  {createPhotos.map((p, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={p.preview}
+                        alt={`Фото ${i + 1}`}
+                        className="w-full h-16 object-cover rounded-lg border border-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCreatePhoto(i)}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Icon name="X" size={9} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button
                 onClick={createClaim}
@@ -444,12 +523,12 @@ export default function Claims({ companyId }: Props) {
                 style={{ background: "hsl(var(--cyan))", color: "hsl(var(--primary-foreground))" }}
               >
                 {createLoading
-                  ? <Icon name="Loader2" size={13} className="animate-spin" />
-                  : <Icon name="Send" size={13} />}
-                Отправить
+                  ? <><Icon name="Loader2" size={13} className="animate-spin" />
+                    {createPhotos.length > 0 ? "Загружаем..." : "Отправляем..."}</>
+                  : <><Icon name="Send" size={13} />Отправить</>}
               </button>
               <button
-                onClick={() => { setCreateMode(false); setCreateDesc(""); }}
+                onClick={() => { setCreateMode(false); setCreateDesc(""); setCreatePhotos([]); }}
                 className="px-4 py-2 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-all"
               >
                 Отмена
