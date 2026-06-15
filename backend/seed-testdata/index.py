@@ -19,7 +19,8 @@ def get_db():
     )
 
 def hash_password(password: str) -> str:
-    salt = "testsalt1234567890abcdef12345678"
+    import os as _os
+    salt = _os.urandom(16).hex()
     h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000)
     return f"{salt}:{h.hex()}"
 
@@ -40,6 +41,7 @@ def handler(event: dict, context) -> dict:
         row = cur.fetchone()
         if row:
             manager_id = str(row[0])
+            cur.execute('UPDATE "user" SET password_hash = %s WHERE id = %s', (pw_hash, manager_id))
         else:
             cur.execute(
                 '''INSERT INTO "user" (name, email, role, password_hash, is_active)
@@ -54,6 +56,7 @@ def handler(event: dict, context) -> dict:
         row = cur.fetchone()
         if row:
             logist_id = str(row[0])
+            cur.execute('UPDATE "user" SET password_hash = %s WHERE id = %s', (pw_hash, logist_id))
         else:
             cur.execute(
                 '''INSERT INTO "user" (name, email, role, password_hash, is_active)
@@ -110,6 +113,7 @@ def handler(event: dict, context) -> dict:
         row = cur.fetchone()
         if row:
             client_user_id = str(row[0])
+            cur.execute('UPDATE "user" SET password_hash = %s WHERE id = %s', (pw_hash, client_user_id))
         else:
             cur.execute(
                 '''INSERT INTO "user" (name, email, role, password_hash, is_active, company_id)
