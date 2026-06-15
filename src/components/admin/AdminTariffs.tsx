@@ -5,6 +5,7 @@ import {
   Loader, ErrMsg, WarnMsg, SectionHdr, Card, Th, Td, EmptyRow,
   Overlay, PriBtn, SecBtn, fmtDate,
 } from "./shared";
+import Icon from "@/components/ui/icon";
 
 const MP_LABELS: Record<string,string> = { ozon:"Ozon", yandex_market:"Яндекс Маркет" };
 
@@ -15,9 +16,10 @@ interface Tariff {
   acquiring_percent: number; service_fee_fixed: number;
   early_payout_standard: number; early_payout_ozon_bank: number;
   updated_at: string; updated_by_name: string;
+  is_active: boolean;
 }
 
-const EMPTY: Omit<Tariff,"id"|"updated_at"|"updated_by_name"> = {
+const EMPTY: Omit<Tariff,"id"|"updated_at"|"updated_by_name"|"is_active"> = {
   marketplace:"ozon", category_name:"", product_type:"standard",
   commission_lt_1500:0, commission_1500_5000:0, commission_5000_10000:0, commission_gt_10000:0,
   acquiring_percent:0.019, service_fee_fixed:20,
@@ -25,22 +27,27 @@ const EMPTY: Omit<Tariff,"id"|"updated_at"|"updated_by_name"> = {
 };
 
 export default function AdminTariffs() {
-  const [tariffs, setTariffs] = useState<Tariff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr]         = useState("");
-  const [mpF, setMpF]         = useState("");
-  const [editing, setEditing] = useState<Partial<Tariff> | null>(null);
-  const [saving, setSaving]   = useState(false);
-  const [confirm, setConfirm] = useState(false);
+  const [tariffs, setTariffs]   = useState<Tariff[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [err, setErr]           = useState("");
+  const [mpF, setMpF]           = useState("");
+  const [activeF, setActiveF]   = useState("true");
+  const [editing, setEditing]   = useState<Partial<Tariff> | null>(null);
+  const [saving, setSaving]     = useState(false);
+  const [confirm, setConfirm]   = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
   const user = getCurrentUser();
 
   const load = useCallback(() => {
     setLoading(true);
-    adminGet("tariffs", mpF ? { marketplace: mpF } : {})
+    const params: Record<string,string> = {};
+    if (mpF) params.marketplace = mpF;
+    if (activeF) params.active_only = activeF;
+    adminGet("tariffs", params)
       .then(d => setTariffs(d.tariffs || []))
       .catch((e: Error) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [mpF]);
+  }, [mpF, activeF]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -62,23 +69,40 @@ export default function AdminTariffs() {
     finally { setSaving(false); }
   }
 
+  async function toggle(t: Tariff) {
+    setToggling(t.id);
+    try {
+      await adminPost("tariff_toggle", { id: t.id, admin_id: user?.id });
+      load();
+    } catch(e:unknown) { setErr((e as Error).message); }
+    finally { setToggling(null); }
+  }
+
   const pct = (v: number) => `${(Number(v) * 100).toFixed(2)}%`;
+  const activeCount   = tariffs.filter(t => t.is_active).length;
+  const inactiveCount = tariffs.filter(t => !t.is_active).length;
 
   return (
     <div className="space-y-5 animate-fade-in">
       <SectionHdr
         title="Тарифы маркетплейсов"
-        sub={`${tariffs.length} категорий`}
+        sub={`${activeCount} активных · ${inactiveCount} в резерве`}
         action={<PriBtn onClick={() => openEdit()} label="Добавить категорию" icon="Plus" />}
       />
       {err && <ErrMsg msg={err} />}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <select value={mpF} onChange={e => setMpF(e.target.value)}
           className="px-3 py-1.5 text-xs rounded-lg border border-border bg-secondary text-foreground focus:outline-none">
           <option value="">Все маркетплейсы</option>
           <option value="ozon">Ozon</option>
           <option value="yandex_market">Яндекс Маркет</option>
+        </select>
+        <select value={activeF} onChange={e => setActiveF(e.target.value)}
+          className="px-3 py-1.5 text-xs rounded-lg border border-border bg-secondary text-foreground focus:outline-none">
+          <option value="true">Активные</option>
+          <option value="false">Резерв</option>
+          <option value="">Все</option>
         </select>
       </div>
 
@@ -94,9 +118,13 @@ export default function AdminTariffs() {
               <tbody>
                 {tariffs.length === 0 && <EmptyRow cols={10} />}
                 {tariffs.map(t => (
-                  <tr key={t.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
+                  <tr key={t.id} className={`border-b border-border last:border-0 transition-colors ${t.is_active ? "hover:bg-secondary/30" : "opacity-50 hover:opacity-70 hover:bg-secondary/20"}`}>
                     <Td c={<span className="font-medium">{MP_LABELS[t.marketplace] || t.marketplace}</span>} />
-                    <Td c={t.category_name} />
+                    <Td c={
+                      <span className={t.is_active ? "text-foreground" : "text-muted-foreground line-through"}>
+                        {t.category_name}
+                      </span>
+                    } />
                     <Td mono c={pct(t.commission_lt_1500)} />
                     <Td mono c={pct(t.commission_1500_5000)} />
                     <Td mono c={pct(t.commission_5000_10000)} />
@@ -109,7 +137,27 @@ export default function AdminTariffs() {
                         {t.updated_by_name && <div className="text-[10px] text-muted-foreground">{t.updated_by_name}</div>}
                       </div>
                     } />
-                    <Td c={<button onClick={() => openEdit(t)} className="text-xs text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded transition-colors">Ред.</button>} />
+                    <Td c={
+                      <div className="flex gap-1.5 items-center">
+                        <button onClick={() => openEdit(t)}
+                          className="text-xs text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded transition-colors">
+                          Ред.
+                        </button>
+                        <button
+                          onClick={() => toggle(t)}
+                          disabled={toggling === t.id}
+                          title={t.is_active ? "Деактивировать (в резерв)" : "Активировать"}
+                          className={`flex items-center justify-center w-7 h-7 rounded border transition-all disabled:opacity-40 ${
+                            t.is_active
+                              ? "border-rose-400/30 text-rose-400 hover:bg-rose-400/10"
+                              : "border-green-400/30 text-green-400 hover:bg-green-400/10"
+                          }`}>
+                          {toggling === t.id
+                            ? <Icon name="Loader2" size={11} className="animate-spin" />
+                            : <Icon name={t.is_active ? "EyeOff" : "Eye"} size={11} />}
+                        </button>
+                      </div>
+                    } />
                   </tr>
                 ))}
               </tbody>

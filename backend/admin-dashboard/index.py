@@ -313,17 +313,20 @@ def handler(event: dict, context) -> dict:
             where = ["1=1"]
             args  = []
             if mp_f: where.append("t.marketplace=%s"); args.append(mp_f)
+            active_f = params.get("active_only", "")
+            if active_f == "true": where.append("t.is_active = true")
+            elif active_f == "false": where.append("t.is_active = false")
             cur.execute(
                 f"""SELECT t.id,t.marketplace,t.category_name,t.product_type,
                            t.commission_lt_1500,t.commission_1500_5000,
                            t.commission_5000_10000,t.commission_gt_10000,
                            t.acquiring_percent,t.service_fee_fixed,
                            t.early_payout_standard,t.early_payout_ozon_bank,
-                           t.updated_at,u.name as updated_by_name
+                           t.updated_at,u.name as updated_by_name,t.is_active
                     FROM marketplace_tariff t
                     LEFT JOIN "user" u ON u.id=t.updated_by
                     WHERE {' AND '.join(where)}
-                    ORDER BY t.marketplace,t.category_name""",
+                    ORDER BY t.is_active DESC,t.marketplace,t.category_name""",
                 args,
             )
             result["tariffs"] = [
@@ -332,9 +335,18 @@ def handler(event: dict, context) -> dict:
                  "commission_5000_10000": r[6], "commission_gt_10000": r[7],
                  "acquiring_percent": r[8], "service_fee_fixed": r[9],
                  "early_payout_standard": r[10], "early_payout_ozon_bank": r[11],
-                 "updated_at": r[12], "updated_by_name": r[13]}
+                 "updated_at": r[12], "updated_by_name": r[13], "is_active": r[14]}
                 for r in cur.fetchall()
             ]
+
+        elif section == "tariff_toggle" and method == "POST":
+            tid = body.get("id")
+            cur.execute(
+                "UPDATE marketplace_tariff SET is_active = NOT is_active, updated_at=NOW(), updated_by=%s WHERE id=%s",
+                (body.get("admin_id"), tid),
+            )
+            conn.commit()
+            result["ok"] = True
 
         elif section == "tariff_save" and method == "POST":
             t = body
