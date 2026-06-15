@@ -8,8 +8,8 @@ interface Props { onCreated: () => void; }
 
 const MARKETPLACE_OPTIONS = [
   { v: "ozon", l: "Ozon" },
-  { v: "wildberries", l: "Wildberries" },
-  { v: "both", l: "Ozon + Wildberries" },
+  { v: "yandex_market", l: "Яндекс Маркет" },
+  { v: "both", l: "Ozon + Яндекс Маркет" },
 ];
 const DELIVERY_OPTIONS = [
   { v: "own", l: "Наша служба доставки" },
