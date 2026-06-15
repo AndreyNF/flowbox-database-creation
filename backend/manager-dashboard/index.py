@@ -200,7 +200,7 @@ def handler(event: dict, context) -> dict:
             result["total"] = cur.fetchone()[0]
             cur.execute("SELECT id, name FROM supplier WHERE archived_at IS NULL ORDER BY name")
             result["suppliers"] = [{"id": str(r[0]), "name": r[1]} for r in cur.fetchall()]
-            cur.execute("SELECT DISTINCT category_name FROM marketplace_tariff ORDER BY category_name")
+            cur.execute("SELECT DISTINCT category_name FROM marketplace_tariff WHERE is_active = true ORDER BY category_name")
             result["categories"] = [r[0] for r in cur.fetchall()]
 
         elif section == "orders":

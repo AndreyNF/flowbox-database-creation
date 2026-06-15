@@ -56,7 +56,7 @@ def handler(event: dict, context) -> dict:
                           acquiring_percent, service_fee_fixed,
                           early_payout_standard, early_payout_ozon_bank
                    FROM marketplace_tariff
-                   WHERE marketplace = 'ozon' AND category_name IS NOT NULL
+                   WHERE marketplace = 'ozon' AND category_name IS NOT NULL AND is_active = true
                    ORDER BY category_name""",
             )
             rows = cur.fetchall()
