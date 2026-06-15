@@ -3,6 +3,18 @@ import { mgrGet, mgrPost } from "@/lib/managerApi";
 import { Loader, ErrMsg, SectionHdr, Card, Th, Td, EmptyRow, Badge, ORDER_STATUS, fmt, fmtDate, Select } from "../shared";
 import Icon from "@/components/ui/icon";
 
+const INVOICE_URL = "https://functions.poehali.dev/6ab4a2f0-8620-448a-9f2d-12fc4b582914";
+
+interface PreviewItem {
+  company_id: string;
+  company_name: string;
+  invoice_number: string;
+  total_vat: number;
+  orders_count: number;
+}
+
+type DayStep = "idle" | "previewing" | "preview" | "running" | "done";
+
 export default function MgrOrders() {
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [companies, setCompanies] = useState<{id:string;name:string}[]>([]);
@@ -19,6 +31,12 @@ export default function MgrOrders() {
   const [cancelReason, setCancelReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const LIMIT = 20;
+
+  // Закрытие дня
+  const [dayStep, setDayStep] = useState<DayStep>("idle");
+  const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
+  const [dayResult, setDayResult] = useState<{ invoices_created: number } | null>(null);
+  const [dayErr, setDayErr] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -50,15 +68,64 @@ export default function MgrOrders() {
     finally { setActionLoading(false); }
   }
 
+  async function openDayPreview() {
+    setDayStep("previewing"); setDayErr("");
+    try {
+      const res = await fetch(`${INVOICE_URL}?action=preview`);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Ошибка превью");
+      setPreviewItems(d.results || []);
+      setDayStep("preview");
+    } catch(e: unknown) {
+      setDayErr((e as Error).message);
+      setDayStep("idle");
+    }
+  }
+
+  async function runCloseDay() {
+    setDayStep("running"); setDayErr("");
+    try {
+      const res = await fetch(INVOICE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "run" }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Ошибка при закрытии дня");
+      setDayResult({ invoices_created: d.invoices_created });
+      setDayStep("done");
+      load();
+    } catch(e: unknown) {
+      setDayErr((e as Error).message);
+      setDayStep("preview");
+    }
+  }
+
+  function closeDayModal() {
+    setDayStep("idle");
+    setPreviewItems([]);
+    setDayResult(null);
+    setDayErr("");
+  }
+
   const pages = Math.ceil(total/LIMIT);
   const page = Math.floor(offset/LIMIT);
+
+  const previewTotal = previewItems.reduce((s, i) => s + i.total_vat, 0);
+  const previewInvoices = previewItems.length;
 
   return (
     <div className="space-y-4 animate-fade-in">
       <SectionHdr title="Заказы" sub={`Всего: ${total}`}
         action={
-          <button className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 font-medium transition-all">
-            <Icon name="Sunset" size={13} /> Закрыть день
+          <button
+            onClick={openDayPreview}
+            disabled={dayStep === "previewing"}
+            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 font-medium transition-all disabled:opacity-40">
+            {dayStep === "previewing"
+              ? <Icon name="Loader2" size={13} className="animate-spin" />
+              : <Icon name="Sunset" size={13} />}
+            Закрыть день
           </button>
         } />
 
@@ -127,6 +194,7 @@ export default function MgrOrders() {
         </>
       )}
 
+      {/* Модалка отмены заказа */}
       {cancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setCancelModal(null)}>
           <div className="rounded-xl border border-border p-6 w-full max-w-sm animate-fade-in" style={{ background: "hsl(var(--card))" }} onClick={e => e.stopPropagation()}>
@@ -138,6 +206,111 @@ export default function MgrOrders() {
                 className="flex-1 py-2 text-xs rounded-lg font-medium bg-rose-500 text-white disabled:opacity-40">Отменить заказ</button>
               <button onClick={() => setCancelModal(null)} className="flex-1 py-2 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground">Закрыть</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка закрытия операционного дня */}
+      {(dayStep === "preview" || dayStep === "running" || dayStep === "done") && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={dayStep === "done" ? closeDayModal : undefined}>
+          <div className="rounded-xl border border-border p-6 w-full max-w-md animate-fade-in" style={{ background: "hsl(var(--card))" }} onClick={e => e.stopPropagation()}>
+
+            {/* Превью */}
+            {(dayStep === "preview" || dayStep === "running") && (
+              <>
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: "hsla(38,95%,55%,0.12)" }}>
+                    <Icon name="Sunset" size={16} style={{ color: "hsl(var(--amber))" }} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">Закрытие операционного дня</div>
+                    <div className="text-xs text-muted-foreground">Проверьте данные перед подтверждением</div>
+                  </div>
+                </div>
+
+                {previewItems.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-4 text-center">
+                    Нет заказов для выставления счетов
+                  </div>
+                ) : (
+                  <>
+                    {/* Сводка */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="rounded-lg p-3 text-center" style={{ background: "hsl(var(--secondary))" }}>
+                        <div className="text-lg font-mono font-bold text-foreground">{previewInvoices}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">счетов</div>
+                      </div>
+                      <div className="rounded-lg p-3 text-center col-span-2" style={{ background: "hsl(var(--secondary))" }}>
+                        <div className="text-lg font-mono font-bold" style={{ color: "hsl(var(--cyan))" }}>
+                          {fmt(previewTotal)} ₽
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">итого к оплате</div>
+                      </div>
+                    </div>
+
+                    {/* Список клиентов */}
+                    <div className="rounded-lg border border-border overflow-hidden mb-5">
+                      <div className="max-h-48 overflow-y-auto">
+                        {previewItems.map((item, i) => (
+                          <div key={item.company_id} className={`flex items-center justify-between px-3 py-2 text-xs ${i < previewItems.length - 1 ? "border-b border-border" : ""}`}>
+                            <div>
+                              <div className="text-foreground font-medium">{item.company_name}</div>
+                              <div className="text-muted-foreground font-mono">{item.orders_count} заказ(ов)</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-semibold text-foreground">{fmt(item.total_vat)} ₽</div>
+                              <div className="text-muted-foreground font-mono text-[10px]">{item.invoice_number}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {dayErr && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-400 mb-3">
+                    <Icon name="AlertCircle" size={12} />{dayErr}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  {previewItems.length > 0 && (
+                    <button onClick={runCloseDay} disabled={dayStep === "running"}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs rounded-lg font-semibold transition-all disabled:opacity-40"
+                      style={{ background: "hsl(var(--amber))", color: "hsl(var(--primary-foreground))" }}>
+                      {dayStep === "running"
+                        ? <><Icon name="Loader2" size={13} className="animate-spin" />Формирую счета...</>
+                        : <><Icon name="Check" size={13} />Подтвердить</>}
+                    </button>
+                  )}
+                  <button onClick={closeDayModal} disabled={dayStep === "running"}
+                    className="flex-1 py-2.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground disabled:opacity-40">
+                    Отмена
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Результат */}
+            {dayStep === "done" && dayResult && (
+              <div className="text-center py-2">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ background: "hsla(142,70%,45%,0.12)" }}>
+                  <Icon name="CheckCircle" size={24} style={{ color: "hsl(var(--green))" }} />
+                </div>
+                <div className="text-sm font-semibold text-foreground mb-1">День закрыт успешно</div>
+                <div className="text-xs text-muted-foreground mb-5">
+                  Сформировано <span className="font-mono font-semibold text-foreground">{dayResult.invoices_created}</span> счет(ов)
+                </div>
+                <button onClick={closeDayModal}
+                  className="w-full py-2.5 text-xs rounded-lg font-medium"
+                  style={{ background: "hsl(var(--cyan))", color: "hsl(var(--primary-foreground))" }}>
+                  Закрыть
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
