@@ -25,9 +25,32 @@ def hash_password(password: str) -> str:
     return f"{salt}:{h.hex()}"
 
 def handler(event: dict, context) -> dict:
-    """Создаёт тестовые данные: компанию, менеджера, клиента, логиста, поставщика, продукты, заказ."""
+    """Создаёт тестовые данные: компанию, менеджера, клиента, логиста, поставщика, продукты, заказ.
+    GET ?action=reset_passwords — только обновляет пароли тестовых пользователей."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
+
+    action = (event.get("queryStringParameters") or {}).get("action", "")
+
+    if action == "reset_passwords":
+        conn = get_db()
+        cur = conn.cursor()
+        try:
+            pw_hash = hash_password("Test1234!")
+            emails = ["manager@test.flowbox", "client@test.flowbox", "logist@test.flowbox"]
+            updated = []
+            for email in emails:
+                cur.execute('UPDATE "user" SET password_hash = %s WHERE email = %s', (pw_hash, email))
+                if cur.rowcount:
+                    updated.append(email)
+            conn.commit()
+            return resp(200, {"ok": True, "updated": updated, "password": "Test1234!"})
+        except Exception as e:
+            conn.rollback()
+            return resp(500, {"error": str(e)})
+        finally:
+            cur.close()
+            conn.close()
 
     conn = get_db()
     cur = conn.cursor()
