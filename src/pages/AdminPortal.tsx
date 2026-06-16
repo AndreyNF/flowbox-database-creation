@@ -12,12 +12,13 @@ import AdminArchive   from "@/components/admin/AdminArchive";
 import AdminSecurity  from "@/components/admin/AdminSecurity";
 import MgrClients     from "@/components/manager/sections/MgrClients";
 import MgrCatalog     from "@/components/manager/sections/MgrCatalog";
+import MgrFinance     from "@/components/manager/sections/MgrFinance";
 import AdminCreateClient from "@/components/admin/AdminCreateClient";
 
 type Section =
   | "overview" | "users" | "settings" | "bank" | "tariffs"
   | "zones" | "archive" | "security"
-  | "clients" | "catalog" | "create_client";
+  | "clients" | "catalog" | "create_client" | "finance";
 
 const NAV: { id: Section; label: string; icon: string; group: string }[] = [
   { id: "overview",       label: "Обзор",              icon: "LayoutDashboard", group: "Главная" },
@@ -26,6 +27,7 @@ const NAV: { id: Section; label: string; icon: string; group: string }[] = [
   { id: "catalog",        label: "Каталог товаров",     icon: "Package",         group: "Управление" },
   { id: "users",          label: "Пользователи",        icon: "Users",           group: "Управление" },
   { id: "settings",       label: "Настройки",           icon: "Settings",        group: "Управление" },
+  { id: "finance",        label: "Финансы",             icon: "TrendingUp",      group: "Финансы" },
   { id: "bank",           label: "Банк",                icon: "Banknote",        group: "Финансы" },
   { id: "tariffs",        label: "Тарифы",              icon: "Percent",         group: "Финансы" },
   { id: "zones",          label: "Зоны доставки",       icon: "MapPin",          group: "Логистика" },
@@ -38,6 +40,7 @@ const SECTION_LABELS: Record<Section, string> = {
   bank: "Банк", tariffs: "Тарифы", zones: "Зоны доставки",
   archive: "Архив", security: "Безопасность",
   clients: "Клиенты", catalog: "Каталог товаров", create_client: "Создать клиента",
+  finance: "Финансы",
 };
 
 export default function AdminPortal() {
@@ -153,6 +156,7 @@ export default function AdminPortal() {
           {active === "catalog"       && <MgrCatalog />}
           {active === "users"         && <AdminUsers />}
           {active === "settings"      && <AdminSettings />}
+          {active === "finance"       && <MgrFinance />}
           {active === "bank"          && <AdminBank />}
           {active === "tariffs"       && <AdminTariffs />}
           {active === "zones"         && <AdminZones />}
