@@ -155,12 +155,24 @@ interface Step4Props extends SharedProps {
   validateOzon: () => void;
   setOzonValid: (v: boolean) => void;
   setOzonWarehouses: (v: { id: string; name: string }[]) => void;
+  onSkip?: () => void;
+}
+
+function SkipButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-3 transition-colors py-1"
+    >
+      Пропустить этот шаг →
+    </button>
+  );
 }
 
 export function Step4Marketplace({
   data, error, loading, set, saveStep,
   ozonValidating, ozonValid, ozonWarehouses,
-  validateOzon, setOzonValid, setOzonWarehouses,
+  validateOzon, setOzonValid, setOzonWarehouses, onSkip,
 }: Step4Props) {
   const showOzon = data.marketplace === "ozon" || data.marketplace === "both";
   const showYM   = data.marketplace === "yandex_market" || data.marketplace === "both";
@@ -315,6 +327,7 @@ export function Step4Marketplace({
           }
           loading={loading}
         />
+        {onSkip && <SkipButton onClick={onSkip} />}
       </div>
     </Card>
   );

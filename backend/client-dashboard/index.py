@@ -105,6 +105,19 @@ def handler(event: dict, context) -> dict:
             for r in rows
         ]
 
+        # Profile completeness — для баннера о незаполненных данных
+        cur.execute(
+            "SELECT marketplace, edo_operator, delivery_method FROM company WHERE id = %s",
+            (company_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            result["profile"] = {
+                "marketplace": row[0],
+                "edo_operator": row[1],
+                "delivery_method": row[2],
+            }
+
     elif section == "catalog":
         search = params.get("search", "")
         category = params.get("category", "")
