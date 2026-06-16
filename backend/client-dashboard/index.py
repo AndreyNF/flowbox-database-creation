@@ -3,6 +3,7 @@ import os
 import psycopg2
 # v2 — claim_action agree/dispute
 from decimal import Decimal
+from jwt_auth import check_role
 
 
 def get_db():
@@ -23,16 +24,27 @@ def handler(event: dict, context) -> dict:
     cors = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-Company-Id",
+        "Access-Control-Allow-Headers": "Content-Type, X-Company-Id, Authorization",
     }
 
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": cors, "body": ""}
 
+    token_payload, err = check_role(event, ["client", "manager", "admin"], cors)
+    if err:
+        return err
+
+    role = token_payload["role"]
+
     method = event.get("httpMethod", "GET")
     params = event.get("queryStringParameters") or {}
     headers = event.get("headers") or {}
-    company_id = params.get("company_id") or headers.get("x-company-id") or headers.get("X-Company-Id")
+
+    # client всегда привязан к своей компании из токена
+    if role == "client":
+        company_id = token_payload.get("company_id")
+    else:
+        company_id = params.get("company_id") or headers.get("x-company-id") or headers.get("X-Company-Id")
 
     if not company_id:
         return {

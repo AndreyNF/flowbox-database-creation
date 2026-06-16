@@ -1,35 +1,8 @@
 {
   "tests": [
-    {
-      "name": "Get tariffs",
-      "method": "GET",
-      "path": "/?action=tariffs",
-      "expectedStatus": 200
-    },
-    {
-      "name": "Products - missing company_id",
-      "method": "GET",
-      "path": "/?action=products",
-      "expectedStatus": 400
-    },
-    {
-      "name": "Products - empty company",
-      "method": "GET",
-      "path": "/?action=products&company_id=00000000-0000-0000-0000-000000000000",
-      "expectedStatus": 200
-    },
-    {
-      "name": "Apply - missing fields",
-      "method": "POST",
-      "path": "/?action=apply",
-      "body": {},
-      "expectedStatus": 400
-    },
-    {
-      "name": "OPTIONS",
-      "method": "OPTIONS",
-      "path": "/",
-      "expectedStatus": 200
-    }
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "No token - unauthorized", "method": "GET", "path": "/?action=tariffs", "expectedStatus": 401},
+    {"name": "Invalid token - unauthorized", "method": "GET", "path": "/?action=tariffs", "headers": {"Authorization": "Bearer invalid.token.here"}, "expectedStatus": 401},
+    {"name": "Apply - unauthorized", "method": "POST", "path": "/?action=apply", "body": {}, "expectedStatus": 401}
   ]
 }

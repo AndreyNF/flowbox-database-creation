@@ -3,6 +3,7 @@ import os
 import psycopg2
 from decimal import Decimal
 import datetime as _dt
+from jwt_auth import check_role
 
 
 def get_db():
@@ -21,7 +22,7 @@ def serial(obj):
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Company-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Company-Id, Authorization",
 }
 
 
@@ -59,16 +60,32 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
+    token_payload, err = check_role(event, ["client", "manager", "admin"], CORS)
+    if err:
+        return err
+
+    role       = token_payload["role"]
+    token_cid  = token_payload.get("company_id")
+
     method  = event.get("httpMethod", "GET")
     params  = event.get("queryStringParameters") or {}
     headers = event.get("headers") or {}
     section = params.get("section", "list")
 
+    # client всегда видит только свою компанию
     company_id = (params.get("company_id")
                   or headers.get("x-company-id")
                   or headers.get("X-Company-Id"))
+    if role == "client":
+        company_id = token_cid
 
     body = json.loads(event.get("body") or "{}") if method in ("POST", "PUT") else {}
+
+    # Менеджерские секции недоступны клиенту
+    MGR_SECTIONS = {"mgr_create", "mgr_photos", "mgr_update", "warehouse",
+                    "warehouse_action", "warehouse_receive", "priority_check"}
+    if role == "client" and section in MGR_SECTIONS:
+        return resp(403, {"error": "Доступ запрещён"})
 
     conn = get_db()
     cur  = conn.cursor()

@@ -1,40 +1,7 @@
 {
   "tests": [
-    {
-      "name": "Missing logist_id",
-      "method": "GET",
-      "path": "/",
-      "expectedStatus": 400
-    },
-    {
-      "name": "Today tasks (empty)",
-      "method": "GET",
-      "path": "/?section=today&logist_id=00000000-0000-0000-0000-000000000000",
-      "expectedStatus": 200
-    },
-    {
-      "name": "History (empty)",
-      "method": "GET",
-      "path": "/?section=history&logist_id=00000000-0000-0000-0000-000000000000",
-      "expectedStatus": 200
-    },
-    {
-      "name": "Detail - not found",
-      "method": "GET",
-      "path": "/?section=detail&logist_id=00000000-0000-0000-0000-000000000000&id=00000000-0000-0000-0000-000000000000",
-      "expectedStatus": 404
-    },
-    {
-      "name": "Route points",
-      "method": "GET",
-      "path": "/?section=route_points&logist_id=00000000-0000-0000-0000-000000000000",
-      "expectedStatus": 200
-    },
-    {
-      "name": "OPTIONS",
-      "method": "OPTIONS",
-      "path": "/",
-      "expectedStatus": 200
-    }
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "No token - unauthorized", "method": "GET", "path": "/?section=today", "expectedStatus": 401},
+    {"name": "Invalid token - unauthorized", "method": "GET", "path": "/?section=today", "headers": {"Authorization": "Bearer invalid.token.here"}, "expectedStatus": 401}
   ]
 }

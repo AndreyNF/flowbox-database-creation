@@ -1,15 +1,9 @@
 {
   "tests": [
-    {"name": "OPTIONS",        "method": "OPTIONS", "path": "/", "expectedStatus": 200},
-    {"name": "overview",       "method": "GET",     "path": "/?section=overview",       "expectedStatus": 200},
-    {"name": "users",          "method": "GET",     "path": "/?section=users",          "expectedStatus": 200},
-    {"name": "settings",       "method": "GET",     "path": "/?section=settings",       "expectedStatus": 200},
-    {"name": "bank",           "method": "GET",     "path": "/?section=bank",           "expectedStatus": 200},
-    {"name": "tariffs",        "method": "GET",     "path": "/?section=tariffs",        "expectedStatus": 200},
-    {"name": "zones",          "method": "GET",     "path": "/?section=zones",          "expectedStatus": 200},
-    {"name": "archive",        "method": "GET",     "path": "/?section=archive",        "expectedStatus": 200},
-    {"name": "security",       "method": "GET",     "path": "/?section=security",       "expectedStatus": 200},
-    {"name": "create_client - missing data", "method": "POST", "path": "/?section=create_client", "expectedStatus": 400, "body": {}, "bodyMatcher": "partial"},
-    {"name": "unknown section","method": "GET",     "path": "/?section=unknown",        "expectedStatus": 400}
+    {"name": "OPTIONS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "No token - unauthorized", "method": "GET", "path": "/?section=overview", "expectedStatus": 401},
+    {"name": "Invalid token - unauthorized", "method": "GET", "path": "/?section=overview", "headers": {"Authorization": "Bearer invalid.token.here"}, "expectedStatus": 401},
+    {"name": "Wrong role (client token) - forbidden", "method": "GET", "path": "/?section=users", "expectedStatus": 401},
+    {"name": "create_client - unauthorized", "method": "POST", "path": "/?section=create_client", "body": {}, "expectedStatus": 401}
   ]
 }

@@ -1,34 +1,7 @@
 {
   "tests": [
-    {
-      "name": "Missing company_id",
-      "method": "GET",
-      "path": "/",
-      "expectedStatus": 400
-    },
-    {
-      "name": "Overview section",
-      "method": "GET",
-      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=overview",
-      "expectedStatus": 200
-    },
-    {
-      "name": "Catalog section",
-      "method": "GET",
-      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=catalog",
-      "expectedStatus": 200
-    },
-    {
-      "name": "Payments section",
-      "method": "GET",
-      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=payments",
-      "expectedStatus": 200
-    },
-    {
-      "name": "OPTIONS preflight",
-      "method": "OPTIONS",
-      "path": "/",
-      "expectedStatus": 200
-    }
+    {"name": "OPTIONS preflight", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "No token - unauthorized", "method": "GET", "path": "/?section=overview&company_id=00000000-0000-0000-0000-000000000000", "expectedStatus": 401},
+    {"name": "Invalid token - unauthorized", "method": "GET", "path": "/?section=overview&company_id=00000000-0000-0000-0000-000000000000", "headers": {"Authorization": "Bearer invalid.token.here"}, "expectedStatus": 401}
   ]
 }

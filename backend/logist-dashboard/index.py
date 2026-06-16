@@ -3,6 +3,7 @@ import os
 import psycopg2
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from jwt_auth import check_role
 
 
 def get_db():
@@ -21,7 +22,7 @@ def serial(obj):
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-User-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-User-Id, Authorization",
 }
 
 
@@ -71,16 +72,24 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
+    token_payload, err = check_role(event, ["logist", "admin"], CORS)
+    if err:
+        return err
+
     params = event.get("queryStringParameters") or {}
     headers = event.get("headers") or {}
     section = params.get("section", "today")
 
-    # Получаем logist_id из заголовка или query
-    logist_id = (
-        params.get("logist_id")
-        or headers.get("x-user-id")
-        or headers.get("X-User-Id")
-    )
+    # logist видит только свои задания — id берём из токена
+    role = token_payload["role"]
+    if role == "logist":
+        logist_id = token_payload.get("sub")
+    else:
+        logist_id = (
+            params.get("logist_id")
+            or headers.get("x-user-id")
+            or headers.get("X-User-Id")
+        )
     if not logist_id:
         return resp(400, {"error": "logist_id обязателен"})
 

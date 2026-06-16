@@ -3,6 +3,7 @@ import os
 import psycopg2
 from decimal import Decimal
 import datetime as _dt
+from jwt_auth import check_role
 
 
 def get_db():
@@ -21,7 +22,7 @@ def serial(obj):
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Authorization",
 }
 
 
@@ -41,6 +42,10 @@ def handler(event: dict, context) -> dict:
     """
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
+
+    _, err = check_role(event, ["admin"], CORS)
+    if err:
+        return err
 
     method  = event.get("httpMethod", "GET")
     params  = event.get("queryStringParameters") or {}

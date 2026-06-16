@@ -3,6 +3,7 @@ import os
 import psycopg2
 from decimal import Decimal
 from datetime import datetime
+from jwt_auth import check_role
 
 
 def get_db():
@@ -21,7 +22,7 @@ def serial(obj):
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-User-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-User-Id, Authorization",
 }
 
 
@@ -40,8 +41,17 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
+    token_payload, err = check_role(event, ["client", "manager", "admin", "product_manager"], CORS)
+    if err:
+        return err
+
+    role = token_payload["role"]
     params = event.get("queryStringParameters") or {}
     action = params.get("action", "tariffs")
+
+    # только manager/admin/product_manager могут применять цену
+    if action == "apply" and role not in ("manager", "admin", "product_manager"):
+        return resp(403, {"error": "Доступ запрещён"})
 
     conn = get_db()
     cur = conn.cursor()

@@ -4,6 +4,7 @@ import psycopg2
 from decimal import Decimal
 
 from crypto import mask_key
+from jwt_auth import check_role
 
 
 def get_db():
@@ -24,10 +25,14 @@ def handler(event: dict, context) -> dict:
     cors = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
     }
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": cors, "body": ""}
+
+    _, err = check_role(event, ["manager", "admin"], cors)
+    if err:
+        return err
 
     method = event.get("httpMethod", "GET")
     params = event.get("queryStringParameters") or {}
