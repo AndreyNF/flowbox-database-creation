@@ -4,59 +4,59 @@
 
 @layer base {
   :root {
-    --background: 220 16% 8%;
-    --foreground: 210 20% 92%;
+    --background: 210 20% 97%;
+    --foreground: 220 20% 12%;
 
-    --card: 220 14% 11%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
 
-    --popover: 220 14% 11%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
 
-    --primary: 195 90% 48%;
-    --primary-foreground: 220 16% 8%;
+    --primary: 195 85% 38%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 12% 16%;
-    --secondary-foreground: 210 20% 80%;
+    --secondary: 210 16% 92%;
+    --secondary-foreground: 220 16% 28%;
 
-    --muted: 220 12% 16%;
-    --muted-foreground: 215 12% 52%;
+    --muted: 210 16% 92%;
+    --muted-foreground: 215 12% 48%;
 
-    --accent: 195 90% 48%;
-    --accent-foreground: 220 16% 8%;
+    --accent: 195 85% 38%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 18%;
-    --input: 220 10% 18%;
-    --ring: 195 90% 48%;
+    --border: 210 14% 86%;
+    --input: 210 14% 86%;
+    --ring: 195 85% 38%;
 
     --radius: 0.375rem;
 
-    --sidebar-background: 220 16% 6%;
-    --sidebar-foreground: 215 12% 60%;
-    --sidebar-primary: 195 90% 48%;
-    --sidebar-primary-foreground: 220 16% 8%;
-    --sidebar-accent: 220 12% 13%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 10% 14%;
-    --sidebar-ring: 195 90% 48%;
+    --sidebar-background: 210 18% 94%;
+    --sidebar-foreground: 215 14% 36%;
+    --sidebar-primary: 195 85% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 16% 88%;
+    --sidebar-accent-foreground: 220 20% 12%;
+    --sidebar-border: 210 14% 84%;
+    --sidebar-ring: 195 85% 38%;
 
     /* Brand colors */
-    --cyan: 195 90% 48%;
-    --cyan-dim: 195 60% 30%;
-    --green: 145 60% 42%;
-    --amber: 38 90% 52%;
-    --rose: 350 75% 55%;
-    --violet: 258 70% 62%;
+    --cyan: 195 85% 38%;
+    --cyan-dim: 195 50% 60%;
+    --green: 145 55% 36%;
+    --amber: 38 85% 46%;
+    --rose: 350 70% 50%;
+    --violet: 258 65% 56%;
 
     /* Chart colors */
-    --chart-1: 195 90% 48%;
-    --chart-2: 145 60% 42%;
-    --chart-3: 38 90% 52%;
-    --chart-4: 258 70% 62%;
-    --chart-5: 350 75% 55%;
+    --chart-1: 195 85% 38%;
+    --chart-2: 145 55% 36%;
+    --chart-3: 38 85% 46%;
+    --chart-4: 258 65% 56%;
+    --chart-5: 350 70% 50%;
   }
 }
 
