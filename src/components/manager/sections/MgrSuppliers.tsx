@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { mgrGet, mgrPost } from "@/lib/managerApi";
 import { Loader, ErrMsg, SectionHdr, Card, Th, Td, EmptyRow, PriBtn, fmtDate, Input, FieldLabel } from "../shared";
 import Icon from "@/components/ui/icon";
@@ -81,7 +82,7 @@ export default function MgrSuppliers() {
         </Card>
       )}
 
-      {modal && (
+      {modal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto py-8" onClick={()=>setModal(null)}>
           <div className="rounded-xl border border-border p-6 w-full max-w-2xl animate-fade-in mx-4" style={{background:"hsl(var(--card))"}} onClick={e=>e.stopPropagation()}>
             <div className="text-sm font-semibold text-foreground mb-5">{modal.id?"Редактировать поставщика":"Добавить поставщика"}</div>
@@ -147,7 +148,8 @@ export default function MgrSuppliers() {
               <button onClick={()=>setModal(null)} className="flex-1 py-2 text-xs rounded-lg border border-border text-muted-foreground">Отмена</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
