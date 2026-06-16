@@ -80,17 +80,19 @@ def handler(event: dict, context) -> dict:
     headers = event.get("headers") or {}
     section = params.get("section", "today")
 
-    # logist видит только свои задания — id берём из токена
     role = token_payload["role"]
     if role == "logist":
         logist_id = token_payload.get("sub")
+    elif role == "admin":
+        # admin видит все задания, может фильтровать по logist_id опционально
+        logist_id = params.get("logist_id") or headers.get("x-user-id") or headers.get("X-User-Id") or None
     else:
         logist_id = (
             params.get("logist_id")
             or headers.get("x-user-id")
             or headers.get("X-User-Id")
         )
-    if not logist_id:
+    if not logist_id and role != "admin":
         return resp(400, {"error": "logist_id обязателен"})
 
     conn = get_db()
@@ -111,10 +113,16 @@ def handler(event: dict, context) -> dict:
 
         if section == "today":
             today = date.today().isoformat()
-            cur.execute(
-                DELIVERY_SELECT + " WHERE d.logist_id = %s AND d.task_date = %s ORDER BY d.id",
-                (logist_id, today),
-            )
+            if logist_id:
+                cur.execute(
+                    DELIVERY_SELECT + " WHERE d.logist_id = %s AND d.task_date = %s ORDER BY d.id",
+                    (logist_id, today),
+                )
+            else:
+                cur.execute(
+                    DELIVERY_SELECT + " WHERE d.task_date = %s ORDER BY d.id",
+                    (today,),
+                )
             rows = cur.fetchall()
             deliveries = [delivery_row_to_dict(r) for r in rows]
 
@@ -136,12 +144,19 @@ def handler(event: dict, context) -> dict:
             result["today"] = today
 
         elif section == "history":
-            cur.execute(
-                DELIVERY_SELECT +
-                " WHERE d.logist_id = %s AND d.task_date >= CURRENT_DATE - INTERVAL '30 days'"
-                " ORDER BY d.task_date DESC, d.id",
-                (logist_id,),
-            )
+            if logist_id:
+                cur.execute(
+                    DELIVERY_SELECT +
+                    " WHERE d.logist_id = %s AND d.task_date >= CURRENT_DATE - INTERVAL '30 days'"
+                    " ORDER BY d.task_date DESC, d.id",
+                    (logist_id,),
+                )
+            else:
+                cur.execute(
+                    DELIVERY_SELECT +
+                    " WHERE d.task_date >= CURRENT_DATE - INTERVAL '30 days'"
+                    " ORDER BY d.task_date DESC, d.id",
+                )
             rows = cur.fetchall()
             deliveries = [delivery_row_to_dict(r) for r in rows]
 
